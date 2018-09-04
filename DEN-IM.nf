@@ -389,6 +389,8 @@ file ".versions"
 
     gzip ${sample_id}_filtered_*.fastq
 
+    rm *.fq *.fastq
+
     """
 }
 
