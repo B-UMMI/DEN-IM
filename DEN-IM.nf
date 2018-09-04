@@ -429,11 +429,15 @@ file ".versions"
 
     samtools view -buh -f 12 -o ${sample_id}_samtools.bam -@ $task.cpus ${sample_id}.bam
 
+    rm ${sample_id}.bam
+
     samtools fastq -1 ${sample_id}_unmapped_1.fq -2 ${sample_id}_unmapped_2.fq ${sample_id}_samtools.bam
 
     renamePE_samtoolsFASTQ.py -1 ${sample_id}_unmapped_1.fq -2 ${sample_id}_unmapped_2.fq
 
     gzip *.headersRenamed_*.fq
+
+    rm *.fq
     """
 }
 
@@ -542,11 +546,15 @@ file ".versions"
     """
     samtools view -buh -F 12 -o ${sample_id}_samtools.bam -@ $task.cpus ${bam}
 
+    rm ${bam}
+
     samtools fastq -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq ${sample_id}_samtools.bam
 
     renamePE_samtoolsFASTQ.py -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq
 
     gzip *.headersRenamed_*.fq
+
+    rm *.fq
     """
 }
 
