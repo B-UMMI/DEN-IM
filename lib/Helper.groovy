@@ -6,7 +6,7 @@ class Help {
         println "============================================================"
         println "                F L O W C R A F T"
         println "============================================================"
-        println "Built using flowcraft v1.2.2dev1"
+        println "Built using flowcraft v1.2.3dev"
         println ""
         if (info.containsKey("fastq")){
         int nsamples = info.fastq / 2
@@ -48,7 +48,7 @@ class Help {
         println "============================================================"
         println "                F L O W C R A F T"
         println "============================================================"
-        println "Built using flowcraft v1.2.2dev1"
+        println "Built using flowcraft v1.2.3dev"
         println ""
         println ""
         println "Usage: "

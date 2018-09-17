@@ -93,7 +93,7 @@ process integrity_coverage_1_1 {
         file('*_max_len') into MAIN_integrity_1_1
     file('*_report') optional true into LOG_report_coverage1_1_1
     set sample_id, val("1_1_integrity_coverage"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_integrity_coverage_1_1
-set sample_id, val("integrity_coverage_1_1"), val("1_1"), file(".report.json") into REPORT_integrity_coverage_1_1
+set sample_id, val("integrity_coverage_1_1"), val("1_1"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_integrity_coverage_1_1
 file ".versions"
 
     script:
@@ -215,7 +215,7 @@ process fastqc_1_2 {
     set sample_id, file(fastq_pair), file('pair_1*'), file('pair_2*') into MAIN_fastqc_out_1_2
     file "*html"
     set sample_id, val("1_2_fastqc"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_fastqc_1_2
-set sample_id, val("fastqc_1_2"), val("1_2"), file(".report.json") into REPORT_fastqc_1_2
+set sample_id, val("fastqc_1_2"), val("1_2"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_fastqc_1_2
 file ".versions"
 
     script:
@@ -253,7 +253,7 @@ process fastqc_report_1_2 {
     file "*_status_report" into LOG_fastqc_report_1_2
     file "${sample_id}_*_summary.txt" optional true
     set sample_id, val("1_2_fastqc_report"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_fastqc_report_1_2
-set sample_id, val("fastqc_report_1_2"), val("1_2"), file(".report.json") into REPORT_fastqc_report_1_2
+set sample_id, val("fastqc_report_1_2"), val("1_2"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_fastqc_report_1_2
 file ".versions"
 
     script:
@@ -336,7 +336,7 @@ process trimmomatic_1_2 {
     set sample_id, "${sample_id}_*trim.fastq.gz" into fastqc_trimmomatic_out_1_1
     file 'trimmomatic_report.csv'
     set sample_id, val("1_2_trimmomatic"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_trimmomatic_1_2
-set sample_id, val("trimmomatic_1_2"), val("1_2"), file(".report.json") into REPORT_trimmomatic_1_2
+set sample_id, val("trimmomatic_1_2"), val("1_2"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_trimmomatic_1_2
 file ".versions"
 
     script:
@@ -370,7 +370,7 @@ process filter_poly_1_3 {
     output:
     set sample_id , file("${sample_id}_filtered_{1,2}.fastq.gz") into filter_poly_out_1_2
     set sample_id, val("1_3_filter_poly"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_filter_poly_1_3
-set sample_id, val("filter_poly_1_3"), val("1_3"), file(".report.json") into REPORT_filter_poly_1_3
+set sample_id, val("filter_poly_1_3"), val("1_3"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_filter_poly_1_3
 file ".versions"
 
     script:
@@ -418,9 +418,9 @@ process remove_host_1_4 {
 
     output:
     set sample_id , file("${sample_id}*.headersRenamed_*.fq.gz") into remove_host_out_1_3
-    file "*_bowtie2.log"
+    set sample_id, file("*_bowtie2.log") into into_json_1_4
     set sample_id, val("1_4_remove_host"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_remove_host_1_4
-set sample_id, val("remove_host_1_4"), val("1_4"), file(".report.json") into REPORT_remove_host_1_4
+set sample_id, val("remove_host_1_4"), val("1_4"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_remove_host_1_4
 file ".versions"
 
     script:
@@ -441,6 +441,30 @@ file ".versions"
 
     rm *.fq
     """
+}
+
+
+
+process report_remove_host_1_4 {
+
+        if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_4 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId remove_host_1_4 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+        }
+
+    input:
+    set sample_id, file(bowtie_log) from into_json_1_4
+
+    output:
+    set sample_id, val("1_4_report_remove_host"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_remove_host_1_4
+set sample_id, val("report_remove_host_1_4"), val("1_4"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_remove_host_1_4
+file ".versions"
+
+    script:
+    template "process_mapping.py"
+
 }
 
 
@@ -510,15 +534,38 @@ process bowtie_1_5 {
 
     output:
     set sample_id , file("*.bam") into bowtie_out_1_4
-    file "*_bowtie2.log"
+    set sample_id, file("*_bowtie2.log") into into_json_1_5
     set sample_id, val("1_5_bowtie"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_bowtie_1_5
-set sample_id, val("bowtie_1_5"), val("1_5"), file(".report.json") into REPORT_bowtie_1_5
+set sample_id, val("bowtie_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_bowtie_1_5
 file ".versions"
 
     script:
     """
     bowtie2 -x $index -1 ${fastq_pair[0]} -2 ${fastq_pair[1]} -p $task.cpus 1> ${sample_id}.bam 2> ${sample_id}_bowtie2.log
     """
+}
+
+
+process report_bowtie_1_5 {
+
+        if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId bowtie_1_5 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+        }
+
+    input:
+    set sample_id, file(bowtie_log) from into_json_1_5
+
+    output:
+    set sample_id, val("1_5_report_bowtie"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_bowtie_1_5
+set sample_id, val("report_bowtie_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_bowtie_1_5
+file ".versions"
+
+    script:
+    template "process_mapping.py"
+
 }
 
 
@@ -541,7 +588,7 @@ process retrieve_mapped_1_6 {
     output:
     set sample_id , file("*.headersRenamed_*.fq.gz") into _retrieve_mapped_out_1_5
     set sample_id, val("1_6_retrieve_mapped"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_retrieve_mapped_1_6
-set sample_id, val("retrieve_mapped_1_6"), val("1_6"), file(".report.json") into REPORT_retrieve_mapped_1_6
+set sample_id, val("retrieve_mapped_1_6"), val("1_6"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_retrieve_mapped_1_6
 file ".versions"
 
     script:
@@ -634,7 +681,7 @@ process va_spades_1_7 {
     output:
     set sample_id, file({task.exitStatus == 1 ? ".exitcode" : '*_spades*.fasta'}) into assembly_spades
     set sample_id, val("1_7_va_spades"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_va_spades_1_7
-set sample_id, val("va_spades_1_7"), val("1_7"), file(".report.json") into REPORT_va_spades_1_7
+set sample_id, val("va_spades_1_7"), val("1_7"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_va_spades_1_7
 file ".versions"
 
     script:
@@ -696,7 +743,7 @@ process va_megahit_1_7  {
     output:
     set sample_id, file('*megahit*.fasta') into megahit_assembly
     set sample_id, val("1_7_va_megahit"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_va_megahit_1_7
-set sample_id, val("va_megahit_1_7"), val("1_7"), file(".report.json") into REPORT_va_megahit_1_7
+set sample_id, val("va_megahit_1_7"), val("1_7"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_va_megahit_1_7
 file ".versions"
 
     script:
@@ -705,7 +752,32 @@ file ".versions"
 }
 
 
-good_assembly.mix(megahit_assembly).set{ viral_assembly_out_1_6 }
+good_assembly.mix(megahit_assembly).into{ to_report_1_7 ; viral_assembly_out_1_6 }
+orf_size = Channel.value(params.minimumContigSize_1_7)
+
+
+process report_viral_assembly_1_7 {
+
+        if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_7 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_7 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_7 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId viral_assembly_1_7 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+        }
+
+    input:
+    set sample_id, file(assembly) from to_report_1_7
+    val min_size from orf_size
+
+    output:
+    set sample_id, val("1_7_report_viral_assembly"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_viral_assembly_1_7
+set sample_id, val("report_viral_assembly_1_7"), val("1_7"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_viral_assembly_1_7
+file ".versions"
+
+    script:
+    template "process_viral_assembly.py"
+
+}
 
 
 
@@ -741,7 +813,7 @@ process assembly_mapping_1_8 {
     set sample_id, file(assembly), 'coverages.tsv', 'coverage_per_bp.tsv', 'sorted.bam', 'sorted.bam.bai' into MAIN_am_out_1_8
     set sample_id, file("coverage_per_bp.tsv") optional true into SIDE_BpCoverage_1_8
     set sample_id, val("1_8_assembly_mapping"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_assembly_mapping_1_8
-set sample_id, val("assembly_mapping_1_8"), val("1_8"), file(".report.json") into REPORT_assembly_mapping_1_8
+set sample_id, val("assembly_mapping_1_8"), val("1_8"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_assembly_mapping_1_8
 file ".versions"
 
     script:
@@ -756,7 +828,7 @@ file ".versions"
         echo [DEBUG] CREATING BAM INDEX >> .command.log 2>&1
         samtools index sorted.bam >> .command.log 2>&1
         echo [DEBUG] ESTIMATING READ DEPTH >> .command.log 2>&1
-        parallel -j ${task.cpus} samtools depth -ar {} sorted.bam \\> {}.tab  ::: \$(grep ">" $assembly | cut -c 2-)
+        parallel -j ${task.cpus} samtools depth -ar {} sorted.bam \\> {}.tab  ::: \$(grep ">" $assembly | cut -c 2- | tr " " "_")
         # Insert 0 coverage count in empty files. See Issue #2
         echo [DEBUG] REMOVING EMPTY FILES  >> .command.log 2>&1
         find . -size 0 -print0 | xargs -0 -I{} sh -c 'echo -e 0"\t"0"\t"0 > "{}"'
@@ -807,7 +879,7 @@ process process_assembly_mapping_1_8 {
     output:
     set sample_id, '*_filt.fasta', 'filtered.bam', 'filtered.bam.bai' into assembly_mapping_out_1_7
     set sample_id, val("1_8_process_am"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_process_am_1_8
-set sample_id, val("process_am_1_8"), val("1_8"), file(".report.json") into REPORT_process_am_1_8
+set sample_id, val("process_am_1_8"), val("1_8"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_process_am_1_8
 file ".versions"
 
     script:
@@ -840,7 +912,7 @@ process pilon_1_9 {
     output:
     set sample_id, '*_polished.fasta' into pilon_out_1_8, pilon_report_1_9
     set sample_id, val("1_9_pilon"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_pilon_1_9
-set sample_id, val("pilon_1_9"), val("1_9"), file(".report.json") into REPORT_pilon_1_9
+set sample_id, val("pilon_1_9"), val("1_9"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_pilon_1_9
 file ".versions"
 
     script:
@@ -875,7 +947,7 @@ process pilon_report_1_9 {
     output:
     file "*_assembly_report.csv" into pilon_report_out_1_9
     set sample_id, val("1_9_pilon_report"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_pilon_report_1_9
-set sample_id, val("pilon_report_1_9"), val("1_9"), file(".report.json") into REPORT_pilon_report_1_9
+set sample_id, val("pilon_report_1_9"), val("1_9"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_pilon_report_1_9
 file ".versions"
 
     script:
@@ -929,7 +1001,7 @@ process split_assembly_1_10 {
     output:
     file '*split.fasta' into splitCh_1_10 optional true
     set sample_id, val("1_10_split_assembly"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_split_assembly_1_10
-set sample_id, val("split_assembly_1_10"), val("1_10"), file(".report.json") into REPORT_split_assembly_1_10
+set sample_id, val("split_assembly_1_10"), val("1_10"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_split_assembly_1_10
 file ".versions"
 
     script:
@@ -967,7 +1039,7 @@ process dengue_typing_2_11 {
     output:
     file "seq_typing*"
     set sample_id, val("2_11_dengue_typing"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_dengue_typing_2_11
-set sample_id, val("dengue_typing_2_11"), val("2_11"), file(".report.json") into REPORT_dengue_typing_2_11
+set sample_id, val("dengue_typing_2_11"), val("2_11"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_dengue_typing_2_11
 file ".versions"
 
     script:
@@ -980,6 +1052,12 @@ file ".versions"
 
         seq_typing.py assembly -f ${assembly} -b ${ params.BD_sequence_file_2_11 } -o ./ -j $task.cpus -t nucl
 
+        # Add information to dotfiles
+        json_str="{'tableRow':[{'sample':'${sample_id}','data':[{'header':'seqtyping','value':'\$(cat seq_typing.report.txt)','table':'typing'}]}],'metadata':[{'sample':'${sample_id}','treeData':'\$(cat seq_typing.report.txt)'}]}"
+        echo \$json_str > .report.json
+        version_str="[{'program':'seq_typing.py','version':'0.1'}]"
+        echo \$version_str > .versions
+
         rm -r rematch_temp
 
         if [ -s seq_typing.report.txt ];
@@ -990,6 +1068,8 @@ file ".versions"
         fi
     } || {
         echo fail > .status
+        json_str="{'tableRow':[{'sample':'${sample_id}','data':[{'header':'seqtyping','value':'NA','table':'typing'}]}]}"
+        echo \$json_str > .report.json
     }
     """
 
@@ -1014,7 +1094,7 @@ process mafft_3_12 {
     output:
     file ("*.align") into mafft_out_3_11
     set val('single'), val("3_12_mafft"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_mafft_3_12
-set val('single'), val("mafft_3_12"), val("3_12"), file(".report.json") into REPORT_mafft_3_12
+set val('single'), val("mafft_3_12"), val("3_12"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_mafft_3_12
 file ".versions"
 
     script:
@@ -1054,12 +1134,20 @@ process raxml_3_13 {
     output:
     file ("RAxML_*") into raxml_out_3_12
     set val('single'), val("3_13_raxml"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_raxml_3_13
-set val('single'), val("raxml_3_13"), val("3_13"), file(".report.json") into REPORT_raxml_3_13
+set val('single'), val("raxml_3_13"), val("3_13"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_raxml_3_13
 file ".versions"
 
     script:
     """
     raxmlHPC -s ${alignment} -p 12345 -m ${substitution_model} -T $task.cpus -n $workflow.scriptName -f a -x ${seednumber} -N ${bootstrapnumber}
+
+    # Add information to dotfiles
+    json_str="{'treeData':[{'trees':['\$(cat RAxML_bipartitions.den-im.nf)', 'bootstrap': '${bootstrapnumber}']}]}"
+
+    echo \$json_str > .report.json
+
+    version_str="[{'program':'raxmlHPC','version':'8.2.11'}]"
+    echo \$version_str > .versions
     """
 
 }
@@ -1075,7 +1163,7 @@ process status {
     publishDir "pipeline_status/$task_name"
 
     input:
-    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_remove_host_1_4,STATUS_bowtie_1_5,STATUS_retrieve_mapped_1_6,STATUS_va_spades_1_7,STATUS_va_megahit_1_7,STATUS_assembly_mapping_1_8,STATUS_process_am_1_8,STATUS_pilon_1_9,STATUS_pilon_report_1_9,STATUS_split_assembly_1_10,STATUS_mafft_3_12,STATUS_raxml_3_13)
+    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_remove_host_1_4,STATUS_report_remove_host_1_4,STATUS_bowtie_1_5,STATUS_report_bowtie_1_5,STATUS_retrieve_mapped_1_6,STATUS_va_spades_1_7,STATUS_va_megahit_1_7,STATUS_report_viral_assembly_1_7,STATUS_assembly_mapping_1_8,STATUS_process_am_1_8,STATUS_pilon_1_9,STATUS_pilon_report_1_9,STATUS_split_assembly_1_10,STATUS_dengue_typing_2_11,STATUS_mafft_3_12,STATUS_raxml_3_13)
 
     output:
     file '*.status' into master_status
@@ -1139,13 +1227,18 @@ process report {
     tag { sample_id }
 
     input:
-    set sample_id, task_name, pid, report_json from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_remove_host_1_4,REPORT_bowtie_1_5,REPORT_retrieve_mapped_1_6,REPORT_va_spades_1_7,REPORT_va_megahit_1_7,REPORT_assembly_mapping_1_8,REPORT_process_am_1_8,REPORT_pilon_1_9,REPORT_pilon_report_1_9,REPORT_split_assembly_1_10,REPORT_mafft_3_12,REPORT_raxml_3_13)
+    set sample_id,
+            task_name,
+            pid,
+            report_json,
+            version_json,
+            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_remove_host_1_4,REPORT_report_remove_host_1_4,REPORT_bowtie_1_5,REPORT_report_bowtie_1_5,REPORT_retrieve_mapped_1_6,REPORT_va_spades_1_7,REPORT_va_megahit_1_7,REPORT_report_viral_assembly_1_7,REPORT_assembly_mapping_1_8,REPORT_process_am_1_8,REPORT_pilon_1_9,REPORT_pilon_report_1_9,REPORT_split_assembly_1_10,REPORT_dengue_typing_2_11,REPORT_mafft_3_12,REPORT_raxml_3_13)
 
     output:
-    file "*.json" optional true into master_report
+    file "*" optional true into master_report
 
     """
-    prepare_reports.py $report_json $sample_id $task_name 1 $pid
+    prepare_reports.py $report_json $version_json $trace $sample_id $task_name 1 $pid $workflow.scriptId $workflow.runName
     """
 
 }
@@ -1153,31 +1246,26 @@ process report {
 
 process compile_reports {
 
-    publishDir "pipeline_report/"
+    publishDir "pipeline_report/", mode: "copy"
+
+    if ( params.reportHTTP != null ){
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH;"
+        afterScript "metadata_POST.sh $params.projectId $params.pipelineId 0 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId 0 \"$params.platformSpecies\""
+    }
 
     input:
     file report from master_report.collect()
+    file forks from Channel.fromPath(".forkTree.json")
+    file dag from Channel.fromPath(".treeDag.json")
+    file js from Channel.fromPath("${workflow.projectDir}/resources/main.js.zip")
 
     output:
     file "pipeline_report.json"
+    file "pipeline_report.html"
+    file "src/main.js"
 
-    """
-    #!/usr/bin/env python3
-    import json
-
-    reports = '${report}'.split()
-
-    storage = []
-    for r in reports:
-        with open(r) as fh:
-            rjson = json.load(fh)
-            storage.append(rjson)
-
-    with open("pipeline_report.json", "w") as rep_fh:
-       rep_fh.write(json.dumps({"data": {"results": storage}},
-                    separators=(",", ":")))
-    """
-
+    script:
+    template "compile_reports.py"
 }
 
 workflow.onComplete {
