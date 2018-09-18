@@ -454,6 +454,8 @@ process report_remove_host_1_4 {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
 
+    tag { sample_id }
+    
     input:
     set sample_id, file(bowtie_log) from into_json_1_4
 
@@ -554,7 +556,8 @@ process report_bowtie_1_5 {
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-
+    tag { sample_id }
+    
     input:
     set sample_id, file(bowtie_log) from into_json_1_5
 
@@ -764,7 +767,9 @@ process report_viral_assembly_1_7 {
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-
+    
+    tag { sample_id }
+    
     input:
     set sample_id, file(assembly) from to_report_1_7
     val min_size from orf_size
@@ -1142,7 +1147,7 @@ file ".versions"
     raxmlHPC -s ${alignment} -p 12345 -m ${substitution_model} -T $task.cpus -n $workflow.scriptName -f a -x ${seednumber} -N ${bootstrapnumber}
 
     # Add information to dotfiles
-    json_str="{'treeData':[{'trees':['\$(cat RAxML_bipartitions.den-im.nf)', 'bootstrap': '${bootstrapnumber}']}]}"
+    json_str="{'treeData':[{'trees':['\$(cat RAxML_bipartitions.*.nf)', 'bootstrap': '${bootstrapnumber}']}]}"
 
     echo \$json_str > .report.json
 
