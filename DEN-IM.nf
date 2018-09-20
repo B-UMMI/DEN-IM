@@ -455,7 +455,7 @@ process report_remove_host_1_4 {
         }
 
     tag { sample_id }
-    
+
     input:
     set sample_id, file(bowtie_log) from into_json_1_4
 
@@ -556,8 +556,9 @@ process report_bowtie_1_5 {
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
+
     tag { sample_id }
-    
+
     input:
     set sample_id, file(bowtie_log) from into_json_1_5
 
@@ -767,9 +768,9 @@ process report_viral_assembly_1_7 {
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-    
+
     tag { sample_id }
-    
+
     input:
     set sample_id, file(assembly) from to_report_1_7
     val min_size from orf_size
@@ -1004,7 +1005,7 @@ process split_assembly_1_10 {
     val min_contig_size from IN_min_contig_size_1_10
 
     output:
-    file '*split.fasta' into splitCh_1_10 optional true
+    file '*.fasta' into splitCh_1_10 optional true
     set sample_id, val("1_10_split_assembly"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_split_assembly_1_10
 set sample_id, val("split_assembly_1_10"), val("1_10"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_split_assembly_1_10
 file ".versions"
@@ -1058,7 +1059,7 @@ file ".versions"
         seq_typing.py assembly -f ${assembly} -b ${ params.BD_sequence_file_2_11 } -o ./ -j $task.cpus -t nucl
 
         # Add information to dotfiles
-        json_str="{'tableRow':[{'sample':'${sample_id}','data':[{'header':'seqtyping','value':'\$(cat seq_typing.report.txt)','table':'typing'}]}],'metadata':[{'sample':'${sample_id}','treeData':'\$(cat seq_typing.report.txt)'}]}"
+        json_str="{'tableRow':[{'sample':'${sample_id}','data':[{'header':'seqtyping','value':'\$(cat seq_typing.report.txt)','table':'typing'}]}],'metadata':[{'sample':'${sample_id}','treeData':'\$(cat seq_typing.report.txt)','column':'typing'}]}"
         echo \$json_str > .report.json
         version_str="[{'program':'seq_typing.py','version':'0.1'}]"
         echo \$version_str > .versions
@@ -1138,6 +1139,7 @@ process raxml_3_13 {
 
     output:
     file ("RAxML_*") into raxml_out_3_12
+    file ("RAxML_bipartitions.*.nf") into into_json_3_13
     set val('single'), val("3_13_raxml"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_raxml_3_13
 set val('single'), val("raxml_3_13"), val("3_13"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_raxml_3_13
 file ".versions"
@@ -1147,15 +1149,36 @@ file ".versions"
     raxmlHPC -s ${alignment} -p 12345 -m ${substitution_model} -T $task.cpus -n $workflow.scriptName -f a -x ${seednumber} -N ${bootstrapnumber}
 
     # Add information to dotfiles
-    json_str="{'treeData':[{'trees':['\$(cat RAxML_bipartitions.*.nf)'], 'bootstrap': '${bootstrapnumber}'}]}"
-
-    echo \$json_str > .report.json
-
     version_str="[{'program':'raxmlHPC','version':'8.2.11'}]"
     echo \$version_str > .versions
     """
 
 }
+
+process report_raxml_3_13 {
+
+        if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 3_13 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 3_13 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 3_13 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId raxml_3_13 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+        }
+
+    tag { 'raxml' }
+
+    input:
+    file(newick) from into_json_3_13
+
+    output:
+    set val('single'), val("3_13_report_raxml"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_raxml_3_13
+set val('single'), val("report_raxml_3_13"), val("3_13"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_raxml_3_13
+file ".versions"
+
+    script:
+    template "process_newick.py"
+
+}
+
 
 
 
@@ -1168,7 +1191,7 @@ process status {
     publishDir "pipeline_status/$task_name"
 
     input:
-    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_remove_host_1_4,STATUS_report_remove_host_1_4,STATUS_bowtie_1_5,STATUS_report_bowtie_1_5,STATUS_retrieve_mapped_1_6,STATUS_va_spades_1_7,STATUS_va_megahit_1_7,STATUS_report_viral_assembly_1_7,STATUS_assembly_mapping_1_8,STATUS_process_am_1_8,STATUS_pilon_1_9,STATUS_pilon_report_1_9,STATUS_split_assembly_1_10,STATUS_dengue_typing_2_11,STATUS_mafft_3_12,STATUS_raxml_3_13)
+    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_remove_host_1_4,STATUS_report_remove_host_1_4,STATUS_bowtie_1_5,STATUS_report_bowtie_1_5,STATUS_retrieve_mapped_1_6,STATUS_va_spades_1_7,STATUS_va_megahit_1_7,STATUS_report_viral_assembly_1_7,STATUS_assembly_mapping_1_8,STATUS_process_am_1_8,STATUS_pilon_1_9,STATUS_pilon_report_1_9,STATUS_split_assembly_1_10,STATUS_dengue_typing_2_11,STATUS_mafft_3_12,STATUS_raxml_3_13,STATUS_report_raxml_3_13)
 
     output:
     file '*.status' into master_status
@@ -1237,7 +1260,7 @@ process report {
             pid,
             report_json,
             version_json,
-            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_remove_host_1_4,REPORT_report_remove_host_1_4,REPORT_bowtie_1_5,REPORT_report_bowtie_1_5,REPORT_retrieve_mapped_1_6,REPORT_va_spades_1_7,REPORT_va_megahit_1_7,REPORT_report_viral_assembly_1_7,REPORT_assembly_mapping_1_8,REPORT_process_am_1_8,REPORT_pilon_1_9,REPORT_pilon_report_1_9,REPORT_split_assembly_1_10,REPORT_dengue_typing_2_11,REPORT_mafft_3_12,REPORT_raxml_3_13)
+            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_remove_host_1_4,REPORT_report_remove_host_1_4,REPORT_bowtie_1_5,REPORT_report_bowtie_1_5,REPORT_retrieve_mapped_1_6,REPORT_va_spades_1_7,REPORT_va_megahit_1_7,REPORT_report_viral_assembly_1_7,REPORT_assembly_mapping_1_8,REPORT_process_am_1_8,REPORT_pilon_1_9,REPORT_pilon_report_1_9,REPORT_split_assembly_1_10,REPORT_dengue_typing_2_11,REPORT_mafft_3_12,REPORT_raxml_3_13,REPORT_report_raxml_3_13)
 
     output:
     file "*" optional true into master_report
