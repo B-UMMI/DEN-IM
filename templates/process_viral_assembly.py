@@ -477,7 +477,6 @@ def main(sample_id, assembly_file, minsize):
     else:
         assembler = "MEGAHIT"
 
-    #TODO - adapt to viral assembly
     with open(".warnings", "w") as warn_fh:
 
         t_80 = int(minsize) * 0.8
@@ -487,6 +486,11 @@ def main(sample_id, assembly_file, minsize):
         # k-mer coverage filter
         assembly_len = assembly_obj.get_assembly_length()
         logger.debug("Checking assembly length: {}".format(assembly_len))
+
+        if assembly_obj.nORFs < 1:
+            warn_msg = "No complete ORFs found."
+            warn_fh.write(warn_msg)
+            fails = warn_msg
 
         if assembly_len < t_80:
 
