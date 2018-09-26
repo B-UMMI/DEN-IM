@@ -6,7 +6,7 @@ class Help {
         println "============================================================"
         println "                F L O W C R A F T"
         println "============================================================"
-        println "Built using flowcraft v1.2.3dev"
+        println "Built using flowcraft v1.3.0"
         println ""
         if (info.containsKey("fastq")){
         int nsamples = info.fastq / 2
@@ -48,7 +48,7 @@ class Help {
         println "============================================================"
         println "                F L O W C R A F T"
         println "============================================================"
-        println "Built using flowcraft v1.2.3dev"
+        println "Built using flowcraft v1.3.0"
         println ""
         println ""
         println "Usage: "
@@ -58,8 +58,8 @@ class Help {
         println "       "
         println "       Component 'INTEGRITY_COVERAGE_1_1'"
         println "       ----------------------------------"
-        println "       --genomeSize_1_1            Genome size estimate for the samples in Mb. It is used to estimate the coverage and other assembly parameters andchecks (default: 1)"
-        println "       --minCoverage_1_1           Minimum coverage for a sample to proceed. By default it's setto 0 to allow any coverage (default: 0)"
+        println "       --genomeSize_1_1            Genome size estimate for the samples in Mb. It is used to estimate the coverage and other assembly parameters andchecks (default: 0.012)"
+        println "       --minCoverage_1_1           Minimum coverage for a sample to proceed. By default it's setto 0 to allow any coverage (default: 15)"
         println "       "
         println "       Component 'FASTQC_TRIMMOMATIC_1_2'"
         println "       ----------------------------------"
@@ -73,14 +73,14 @@ class Help {
         println "       ---------------------------"
         println "       --adapter_1_3               Pattern to filter the reads. Please separate parametervalues with a space and separate new parameter sets with semicolon (;).Parameters are defined by two values: the pattern (any combination of theletters ATCGN), and the number of repeats or percentage of occurence. (default: 'A 50%; T 50%; N 50%')"
         println "       "
-        println "       Component 'REMOVE_HOST_1_4'"
-        println "       ---------------------------"
-        println "       --refIndex_1_4              Specifies the reference indexes to be provided to bowtie2. (default: '/index_hg19/hg19')"
-        println "       "
-        println "       Component 'BOWTIE_1_5'"
+        println "       Component 'BOWTIE_1_4'"
         println "       ----------------------"
-        println "       --reference_1_5             Specifies the reference genome to be provided to bowtie2-build. (default: null)"
-        println "       --index_1_5                 Specifies the reference indexes to be provided to bowtie2. (default: null)"
+        println "       --reference_1_4             Specifies the reference genome to be provided to bowtie2-build. (default: '/ref/1_GenotypesDENV_14-05-18.fasta')"
+        println "       --index_1_4                 Specifies the reference indexes to be provided to bowtie2. (default: null)"
+        println "       "
+        println "       Component 'REMOVE_HOST_1_6'"
+        println "       ---------------------------"
+        println "       --refIndex_1_6              Specifies the reference indexes to be provided to bowtie2. (default: '/index_hg19/hg19')"
         println "       "
         println "       Component 'VIRAL_ASSEMBLY_1_7'"
         println "       ------------------------------"
@@ -93,16 +93,12 @@ class Help {
         println "       Component 'ASSEMBLY_MAPPING_1_8'"
         println "       --------------------------------"
         println "       --minAssemblyCoverage_1_8   In auto, the default minimum coverage for each assembled contig is 1/3 of the assembly mean coverage or 10x, if the mean coverage is below 10x (default: 'auto')"
-        println "       --AMaxContigs_1_8           A warning is issued if the number of contigs is overthis threshold. (default: 100)"
-        println "       --genomeSize_1_8            Genome size estimate for the samples. It is used to check the ratio of contig number per genome MB (default: 2.1)"
+        println "       --AMaxContigs_1_8           A warning is issued if the number of contigs is overthis threshold. (default: 1000)"
+        println "       --genomeSize_1_8            Genome size estimate for the samples. It is used to check the ratio of contig number per genome MB (default: 0.01)"
         println "       "
         println "       Component 'SPLIT_ASSEMBLY_1_10'"
         println "       -------------------------------"
-        println "       --size_1_10                 Minimum contig size (default: null)"
-        println "       "
-        println "       Component 'DENGUE_TYPING_2_11'"
-        println "       ------------------------------"
-        println "       --BD_sequence_file_2_11     Path to the DB sequence file. If Blast DB was alreadyproduced only provide the file that doesn't end with '.n*'.If no blast DB is found for the DB sequence file, one willbe created. If more than one Blast DB file is passed, a typefor each file will be determined. (default: '/dengue_DB/blast_db/GenotypesDENV_14-05-18.problematic_sequences_corrected.fasta.corrected.fasta.iupac_removed.fasta')"
+        println "       --size_1_10                 Minimum contig size (default: 10000)"
         println "       "
         println "       Component 'RAXML_3_13'"
         println "       ----------------------"
@@ -112,4 +108,32 @@ class Help {
         
     }
 
+}
+
+class CollectInitialMetadata {
+
+    public static void print_metadata(nextflow.script.WorkflowMetadata workflow){
+
+        def treeDag = new File(".treeDag.json").text
+        def forkTree = new File(".forkTree.json").text
+
+        def metadataJson = "{'nfMetadata':{'scriptId':'${workflow.scriptId}',\
+'scriptName':'${workflow.scriptName}',\
+'profile':'${workflow.profile}',\
+'container':'${workflow.container}',\
+'containerEngine':'${workflow.containerEngine}',\
+'commandLine':'${workflow.commandLine}',\
+'runName':'${workflow.runName}',\
+'sessionId':'${workflow.sessionId}',\
+'projectDir':'${workflow.projectDir}',\
+'launchDir':'${workflow.launchDir}',\
+'startTime':'${workflow.start}',\
+'dag':${treeDag},\
+'forks':${forkTree}}}"
+
+        def json = metadataJson.replaceAll("'", '"')
+
+        def jsonFile = new File(".metadata.json")
+        jsonFile.write json
+    }
 }

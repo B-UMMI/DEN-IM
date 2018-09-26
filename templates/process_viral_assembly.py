@@ -133,7 +133,6 @@ class Assembly:
         ORF = 0
 
         for header in entry:
-            headerStr = header.__next__()[1:].strip()
             seq = "".join(s.strip() for s in entry.__next__())
             if len(seq) >= int(min_size):
                 ORF += 1
@@ -486,11 +485,6 @@ def main(sample_id, assembly_file, minsize):
         # k-mer coverage filter
         assembly_len = assembly_obj.get_assembly_length()
         logger.debug("Checking assembly length: {}".format(assembly_len))
-
-        if assembly_obj.nORFs < 1:
-            warn_msg = "No complete ORFs found."
-            warn_fh.write(warn_msg)
-            fails = warn_msg
 
         if assembly_len < t_80:
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env nextflow
 
 import Helper
+import CollectInitialMetadata
 
 // Pipeline version
 if (workflow.commitId){
@@ -38,6 +39,7 @@ if (params.containsKey("accessions")){
 }
 
 Help.start_info(infoMap, "$workflow.start", "$workflow.profile")
+CollectInitialMetadata.print_metadata(workflow)
     
 
 // Placeholder for main input channels
@@ -396,31 +398,175 @@ file ".versions"
 
 
 
-IN_index_files_1_4 = Channel.value(params.refIndex_1_4)
+// Check for the presence of absence of both index and fasta reference
+if (params.index_1_4 == null && params.reference_1_4 == null){
+    exit 1, "An index or a reference fasta file must be provided."
+} else if (params.index_1_4 != null && params.reference_1_4 != null){
+    exit 1, "Provide only an index OR a reference fasta file."
+}
 
 
-process remove_host_1_4 {
+if (params.reference_1_4){
+
+    reference_in_1_4 = Channel.fromPath(params.reference_1_4)
+        .map{it -> file(it).exists() ? [it.toString().tokenize('/').last().tokenize('.')[0..-2].join('.') ,it] : null}
+        .ifEmpty{ exit 1, "No fasta file was provided"}
+
+    process bowtie_build_1_4 {
+
+        // Send POST request to platform
+            if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_4 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId bowtie_1_4 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+        }
+
+        tag { build_id }
+        storeDir 'bowtie_index/'
+        maxForks 1
+
+        input:
+        set build_id, file(fasta) from reference_in_1_4
+
+        output:
+        val build_id into bowtieIndexId_1_4
+        file "${build_id}*.bt2" into bowtieIndex_1_4
+
+        script:
+        """
+        bowtie2-build ${fasta} $build_id > ${build_id}_bowtie2_build.log
+        """
+    }
+} else {
+    bowtieIndexId_1_4 = Channel.value(params.index_1_4.split("/").last())
+    bowtieIndex_1_4 = Channel.fromPath("${params.index_1_4}*.bt2").collect().toList()
+}
+
+
+process bowtie_1_4 {
 
     // Send POST request to platform
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_4 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId remove_host_1_4 \"$params.platformSpecies\" true"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_4 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId bowtie_1_4 \"$params.platformSpecies\" true"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
 
     tag { sample_id }
-    publishDir 'results/mapping/remove_host_1_4/', pattern: '*_bowtie2.log', mode: 'copy'
+    publishDir 'results/mapping/bowtie_1_4/'
 
     input:
     set sample_id, file(fastq_pair) from filter_poly_out_1_2
-    val bowtie2Index from IN_index_files_1_4
+    each index from bowtieIndexId_1_4
+    each file(index_files) from bowtieIndex_1_4
 
     output:
-    set sample_id , file("${sample_id}*.headersRenamed_*.fq.gz") into remove_host_out_1_3
+    set sample_id , file("*.bam") into bowtie_out_1_3
     set sample_id, file("*_bowtie2.log") into into_json_1_4
-    set sample_id, val("1_4_remove_host"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_remove_host_1_4
-set sample_id, val("remove_host_1_4"), val("1_4"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_remove_host_1_4
+    set sample_id, val("1_4_bowtie"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_bowtie_1_4
+set sample_id, val("bowtie_1_4"), val("1_4"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_bowtie_1_4
+file ".versions"
+
+    script:
+    """
+    bowtie2 -x $index -1 ${fastq_pair[0]} -2 ${fastq_pair[1]} -p $task.cpus 1> ${sample_id}.bam 2> ${sample_id}_bowtie2.log
+    """
+}
+
+
+process report_bowtie_1_4 {
+
+        if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_4 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId bowtie_1_4 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+        }
+
+    tag { sample_id }
+
+    input:
+    set sample_id, file(bowtie_log) from into_json_1_4
+
+    output:
+    set sample_id, val("1_4_report_bowtie"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_bowtie_1_4
+set sample_id, val("report_bowtie_1_4"), val("1_4"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_bowtie_1_4
+file ".versions"
+
+    script:
+    template "process_mapping.py"
+
+}
+
+
+process retrieve_mapped_1_5 {
+
+    // Send POST request to platform
+        if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId retrieve_mapped_1_5 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+        }
+
+    tag { sample_id }
+    publishDir 'results/mapping/retrieve_mapped_1_5/'
+
+    input:
+    set sample_id, file(bam) from bowtie_out_1_3
+
+    output:
+    set sample_id , file("*.headersRenamed_*.fq.gz") into retrieve_mapped_out_1_4
+    set sample_id, val("1_5_retrieve_mapped"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_retrieve_mapped_1_5
+set sample_id, val("retrieve_mapped_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_retrieve_mapped_1_5
+file ".versions"
+
+    script:
+    """
+    samtools view -buh -F 12 -o ${sample_id}_samtools.bam -@ $task.cpus ${bam}
+
+    rm ${bam}
+
+    samtools fastq -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq ${sample_id}_samtools.bam
+
+    rm ${sample_id}_samtools.bam
+
+    renamePE_samtoolsFASTQ.py -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq
+
+    gzip *.headersRenamed_*.fq
+
+    rm *.fq
+    """
+}
+
+
+IN_index_files_1_6 = Channel.value(params.refIndex_1_6)
+
+
+process remove_host_1_6 {
+
+    // Send POST request to platform
+        if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_6 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_6 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_6 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId remove_host_1_6 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+        }
+
+    tag { sample_id }
+    publishDir 'results/mapping/remove_host_1_6/', pattern: '*_bowtie2.log', mode: 'copy'
+
+    input:
+    set sample_id, file(fastq_pair) from retrieve_mapped_out_1_4
+    val bowtie2Index from IN_index_files_1_6
+
+    output:
+    set sample_id , file("${sample_id}*.headersRenamed_*.fq.gz") into _remove_host_out_1_5
+    set sample_id, file("*_bowtie2.log") into into_json_1_6
+    set sample_id, val("1_6_remove_host"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_remove_host_1_6
+set sample_id, val("remove_host_1_6"), val("1_6"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_remove_host_1_6
 file ".versions"
 
     script:
@@ -445,181 +591,37 @@ file ".versions"
 
 
 
-process report_remove_host_1_4 {
+process report_remove_host_1_6 {
 
-        if ( params.platformHTTP != null ) {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_4 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_4 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId remove_host_1_4 \"$params.platformSpecies\" true"
-    } else {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
-        }
-
-    tag { sample_id }
-
-    input:
-    set sample_id, file(bowtie_log) from into_json_1_4
-
-    output:
-    set sample_id, val("1_4_report_remove_host"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_remove_host_1_4
-set sample_id, val("report_remove_host_1_4"), val("1_4"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_remove_host_1_4
-file ".versions"
-
-    script:
-    template "process_mapping.py"
-
-}
-
-
-// Check for the presence of absence of both index and fasta reference
-if (params.index_1_5 == null && params.reference_1_5 == null){
-    exit 1, "An index or a reference fasta file must be provided."
-} else if (params.index_1_5 != null && params.reference_1_5 != null){
-    exit 1, "Provide only an index OR a reference fasta file."
-}
-
-
-if (params.reference_1_5){
-
-    reference_in_1_5 = Channel.fromPath(params.reference_1_5)
-        .map{it -> file(it).exists() ? [it.toString().tokenize('/').last().tokenize('.')[0..-2].join('.') ,it] : null}
-        .ifEmpty{ exit 1, "No fasta file was provided"}
-
-    process bowtie_build_1_5 {
-
-        // Send POST request to platform
-            if ( params.platformHTTP != null ) {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId bowtie_1_5 \"$params.platformSpecies\" true"
-    } else {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
-        }
-
-        tag { build_id }
-        storeDir 'bowtie_index/'
-        maxForks 1
-
-        input:
-        set build_id, file(fasta) from reference_in_1_5
-
-        output:
-        val build_id into bowtieIndexId_1_5
-        file "${build_id}*.bt2" into bowtieIndex_1_5
-
-        script:
-        """
-        bowtie2-build ${fasta} $build_id > ${build_id}_bowtie2_build.log
-        """
-    }
-} else {
-    bowtieIndexId_1_5 = Channel.value(params.index_1_5.split("/").last())
-    bowtieIndex_1_5 = Channel.fromPath("${params.index_1_5}*.bt2").collect().toList()
-}
-
-
-process bowtie_1_5 {
-
-    // Send POST request to platform
-        if ( params.platformHTTP != null ) {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId bowtie_1_5 \"$params.platformSpecies\" true"
-    } else {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
-        }
-
-    tag { sample_id }
-    publishDir 'results/mapping/bowtie_1_5/'
-
-    input:
-    set sample_id, file(fastq_pair) from remove_host_out_1_3
-    each index from bowtieIndexId_1_5
-    each file(index_files) from bowtieIndex_1_5
-
-    output:
-    set sample_id , file("*.bam") into bowtie_out_1_4
-    set sample_id, file("*_bowtie2.log") into into_json_1_5
-    set sample_id, val("1_5_bowtie"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_bowtie_1_5
-set sample_id, val("bowtie_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_bowtie_1_5
-file ".versions"
-
-    script:
-    """
-    bowtie2 -x $index -1 ${fastq_pair[0]} -2 ${fastq_pair[1]} -p $task.cpus 1> ${sample_id}.bam 2> ${sample_id}_bowtie2.log
-    """
-}
-
-
-process report_bowtie_1_5 {
-
-        if ( params.platformHTTP != null ) {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId bowtie_1_5 \"$params.platformSpecies\" true"
-    } else {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
-        }
-
-    tag { sample_id }
-
-    input:
-    set sample_id, file(bowtie_log) from into_json_1_5
-
-    output:
-    set sample_id, val("1_5_report_bowtie"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_bowtie_1_5
-set sample_id, val("report_bowtie_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_bowtie_1_5
-file ".versions"
-
-    script:
-    template "process_mapping.py"
-
-}
-
-
-process retrieve_mapped_1_6 {
-
-    // Send POST request to platform
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_6 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_6 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_6 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId retrieve_mapped_1_6 \"$params.platformSpecies\" true"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_6 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_6 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId remove_host_1_6 \"$params.platformSpecies\" true"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
 
     tag { sample_id }
-    publishDir 'results/mapping/retrieve_mapped_1_6/'
 
     input:
-    set sample_id, file(bam) from bowtie_out_1_4
+    set sample_id, file(bowtie_log) from into_json_1_6
 
     output:
-    set sample_id , file("*.headersRenamed_*.fq.gz") into _retrieve_mapped_out_1_5
-    set sample_id, val("1_6_retrieve_mapped"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_retrieve_mapped_1_6
-set sample_id, val("retrieve_mapped_1_6"), val("1_6"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_retrieve_mapped_1_6
+    set sample_id, val("1_6_report_remove_host"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_remove_host_1_6
+set sample_id, val("report_remove_host_1_6"), val("1_6"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_remove_host_1_6
 file ".versions"
 
     script:
-    """
-    samtools view -buh -F 12 -o ${sample_id}_samtools.bam -@ $task.cpus ${bam}
+    template "process_mapping.py"
 
-    rm ${bam}
-
-    samtools fastq -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq ${sample_id}_samtools.bam
-
-    rm ${sample_id}_samtools.bam
-
-    renamePE_samtoolsFASTQ.py -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq
-
-    gzip *.headersRenamed_*.fq
-
-    rm *.fq
-    """
 }
 
 
-_retrieve_mapped_out_1_5.into{ retrieve_mapped_out_1_5;_LAST_fastq_1_8 }
+_remove_host_out_1_5.into{ remove_host_out_1_5;_LAST_fastq_1_8 }
 
 //MAIN INPUT - FASTQ FILES
 spades_in = Channel.create()
 megahit_in = Channel.create()
-retrieve_mapped_out_1_5.into{ spades_in; megahit_in }
+remove_host_out_1_5.into{ spades_in; megahit_in }
 
 //EXPECTED GENOME SIZE
 if ( !params.minimumContigSize_1_7.toString().isNumber() ){
@@ -1023,8 +1025,6 @@ splitCh_1_10.flatMap().map{ it -> [it.toString().tokenize('/').last().tokenize('
 
 _split_assembly_out_1_9.into{ split_assembly_out_1_9;dengue_typing_in_1_10;mafft_in_1_11 }
 
-file(params.BD_sequence_file_2_11) ? params.BD_sequence_file_2_11 : exit(1, "'BD_sequence_file_2_11' parameter missing")
-
 process dengue_typing_2_11 {
 
     // Send POST request to platform
@@ -1056,7 +1056,7 @@ file ".versions"
         cp -r /NGStools/ReMatCh rematch_temp
         export PATH="\$(pwd)/rematch_temp/ReMatCh:\$PATH"
 
-        seq_typing.py assembly -f ${assembly} -b ${ params.BD_sequence_file_2_11 } -o ./ -j $task.cpus -t nucl
+        seq_typing.py assembly --org Dengue Virus -f ${assembly} -o ./ -j $task.cpus -t nucl
 
         # Add information to dotfiles
         json_str="{'tableRow':[{'sample':'${sample_id}','data':[{'header':'seqtyping','value':'\$(cat seq_typing.report.txt)','table':'typing'}]}],'metadata':[{'sample':'${sample_id}','treeData':'\$(cat seq_typing.report.txt)','column':'typing'}]}"
@@ -1191,7 +1191,7 @@ process status {
     publishDir "pipeline_status/$task_name"
 
     input:
-    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_remove_host_1_4,STATUS_report_remove_host_1_4,STATUS_bowtie_1_5,STATUS_report_bowtie_1_5,STATUS_retrieve_mapped_1_6,STATUS_va_spades_1_7,STATUS_va_megahit_1_7,STATUS_report_viral_assembly_1_7,STATUS_assembly_mapping_1_8,STATUS_process_am_1_8,STATUS_pilon_1_9,STATUS_pilon_report_1_9,STATUS_split_assembly_1_10,STATUS_dengue_typing_2_11,STATUS_mafft_3_12,STATUS_raxml_3_13,STATUS_report_raxml_3_13)
+    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_bowtie_1_4,STATUS_report_bowtie_1_4,STATUS_retrieve_mapped_1_5,STATUS_remove_host_1_6,STATUS_report_remove_host_1_6,STATUS_va_spades_1_7,STATUS_va_megahit_1_7,STATUS_report_viral_assembly_1_7,STATUS_assembly_mapping_1_8,STATUS_process_am_1_8,STATUS_pilon_1_9,STATUS_pilon_report_1_9,STATUS_split_assembly_1_10,STATUS_dengue_typing_2_11,STATUS_mafft_3_12,STATUS_raxml_3_13,STATUS_report_raxml_3_13)
 
     output:
     file '*.status' into master_status
@@ -1260,7 +1260,7 @@ process report {
             pid,
             report_json,
             version_json,
-            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_remove_host_1_4,REPORT_report_remove_host_1_4,REPORT_bowtie_1_5,REPORT_report_bowtie_1_5,REPORT_retrieve_mapped_1_6,REPORT_va_spades_1_7,REPORT_va_megahit_1_7,REPORT_report_viral_assembly_1_7,REPORT_assembly_mapping_1_8,REPORT_process_am_1_8,REPORT_pilon_1_9,REPORT_pilon_report_1_9,REPORT_split_assembly_1_10,REPORT_dengue_typing_2_11,REPORT_mafft_3_12,REPORT_raxml_3_13,REPORT_report_raxml_3_13)
+            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_bowtie_1_4,REPORT_report_bowtie_1_4,REPORT_retrieve_mapped_1_5,REPORT_remove_host_1_6,REPORT_report_remove_host_1_6,REPORT_va_spades_1_7,REPORT_va_megahit_1_7,REPORT_report_viral_assembly_1_7,REPORT_assembly_mapping_1_8,REPORT_process_am_1_8,REPORT_pilon_1_9,REPORT_pilon_report_1_9,REPORT_split_assembly_1_10,REPORT_dengue_typing_2_11,REPORT_mafft_3_12,REPORT_raxml_3_13,REPORT_report_raxml_3_13)
 
     output:
     file "*" optional true into master_report
