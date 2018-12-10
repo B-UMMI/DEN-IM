@@ -58,11 +58,11 @@ IN_fastq_raw = Channel.fromFilePairs(params.fastq).ifEmpty { exit 1, "No fastq f
 IN_fastq_raw.set{ integrity_coverage_in_1_0 }
 
 
-IN_genome_size_1_1 = Channel.value(params.genomeSize)
-    .map{it -> it.toString().isNumber() ? it : exit(1, "The genomeSize parameter must be a number or a float. Provided value: '${params.genomeSize_}'")}
+IN_genome_size_1_1 = Channel.value(params.genomeSize_1_1)
+    .map{it -> it.toString().isNumber() ? it : exit(1, "The genomeSize parameter must be a number or a float. Provided value: '${params.genomeSize__1_1}'")}
 
-IN_min_coverage_1_1 = Channel.value(params.minCoverage)
-    .map{it -> it.toString().isNumber() ? it : exit(1, "The minCoverage parameter must be a number or a float. Provided value: '${params.minCoverage_}'")}
+IN_min_coverage_1_1 = Channel.value(params.minCoverage_1_1)
+    .map{it -> it.toString().isNumber() ? it : exit(1, "The minCoverage parameter must be a number or a float. Provided value: '${params.minCoverage__1_1}'")}
 
 process integrity_coverage_1_1 {
 
@@ -177,23 +177,23 @@ SIDE_max_len_1_1.set{ SIDE_max_len_1_6 }
 
 
 // Check sliding window parameter
-if ( params.trimSlidingWindow.toString().split(":").size() != 2 ){
-    exit 1, "'trimSlidingWindow' parameter must contain two values separated by a ':'. Provided value: '${params.trimSlidingWindow}'"
+if ( params.trimSlidingWindow_1_2.toString().split(":").size() != 2 ){
+    exit 1, "'trimSlidingWindow_1_2' parameter must contain two values separated by a ':'. Provided value: '${params.trimSlidingWindow_1_2}'"
 }
-if ( !params.trimLeading.toString().isNumber() ){
-    exit 1, "'trimLeading' parameter must be a number. Provide value: '${params.trimLeading}'"
+if ( !params.trimLeading_1_2.toString().isNumber() ){
+    exit 1, "'trimLeading_1_2' parameter must be a number. Provide value: '${params.trimLeading_1_2}'"
 }
-if ( !params.trimTrailing.toString().isNumber() ){
-    exit 1, "'trimTrailing' parameter must be a number. Provide value: '${params.trimTrailing}'"
+if ( !params.trimTrailing_1_2.toString().isNumber() ){
+    exit 1, "'trimTrailing_1_2' parameter must be a number. Provide value: '${params.trimTrailing_1_2}'"
 }
-if ( !params.trimMinLength.toString().isNumber() ){
-    exit 1, "'trimMinLength' parameter must be a number. Provide value: '${params.trimMinLength}'"
+if ( !params.trimMinLength_1_2.toString().isNumber() ){
+    exit 1, "'trimMinLength_1_2' parameter must be a number. Provide value: '${params.trimMinLength_1_2}'"
 }
 
-IN_trimmomatic_opts_1_2 = Channel.value([params.trimSlidingWindow,params.trimLeading,params.trimTrailing,params.trimMinLength])
-IN_adapters_1_2 = Channel.value(params.adapters)
+IN_trimmomatic_opts_1_2 = Channel.value([params.trimSlidingWindow_1_2,params.trimLeading_1_2,params.trimTrailing_1_2,params.trimMinLength_1_2])
+IN_adapters_1_2 = Channel.value(params.adapters_1_2)
 
-clear = params.clearAtCheckpoint ? "true" : "false"
+clear = params.clearInput_1_2 ? "true" : "false"
 checkpointClear_1_2 = Channel.value(clear)
 
 process fastqc_1_2 {
@@ -348,8 +348,10 @@ file ".versions"
 
 
 
-IN_adapter_1_3 = Channel.value(params.adapter)
+IN_adapter_1_3 = Channel.value(params.adapter_1_3)
 
+clear = params.clearInput_1_3 ? "true" : "false"
+checkpointClear_1_3 = Channel.value(clear)
 
 process filter_poly_1_3 {
 
@@ -362,12 +364,14 @@ process filter_poly_1_3 {
         }
 
     tag { sample_id }
+    echo true
 
     errorStrategy { task.exitStatus == 120 ? 'ignore' : 'retry' }
 
     input:
     set sample_id, file(fastq_pair) from fastqc_trimmomatic_out_1_1
     val adapter from IN_adapter_1_3
+    val clear from checkpointClear_1_3
 
     output:
     set sample_id , file("${sample_id}_filtered_{1,2}.fastq.gz") into filter_poly_out_1_2
@@ -393,24 +397,35 @@ file ".versions"
 
     rm *.fq *.fastq
 
+    if [ "$clear" = "true" ];
+    then
+        work_regex=".*/work/.{2}/.{30}/.*"
+        file_source1=\$(readlink -f \$(pwd)/${fastq_pair[0]})
+        file_source2=\$(readlink -f \$(pwd)/${fastq_pair[1]})
+        if [[ "\$file_source1" =~ \$work_regex ]]; then
+            rm \$file_source1 \$file_source2
+        fi
+    fi
+
     """
 }
 
 
 
 // Check for the presence of absence of both index and fasta reference
-if (params.index == null && params.reference == null){
+if (params.index_1_4 == null && params.reference_1_4 == null){
     exit 1, "An index or a reference fasta file must be provided."
-} else if (params.index != null && params.reference != null){
+} else if (params.index_1_4 != null && params.reference_1_4 != null){
     exit 1, "Provide only an index OR a reference fasta file."
 }
 
+clear = params.clearInput_1_4 ? "true" : "false"
+checkpointClear_1_4 = Channel.value(clear)
 
-if (params.reference){
+if (params.reference_1_4){
 
-    reference_in_1_4 = Channel.fromPath(params.reference)
+    reference_in_1_4 = Channel.fromPath(params.reference_1_4)
         .map{it -> file(it).exists() ? [it.toString().tokenize('/').last().tokenize('.')[0..-2].join('.') ,it] : null}
-        .ifEmpty{ exit 1, "No fasta file was provided"}
 
     process bowtie_build_1_4 {
 
@@ -435,12 +450,19 @@ if (params.reference){
 
         script:
         """
+        # checking if reference file is empty. Moved here due to allow reference file to be inside the container.
+        if [ ! -f "$fasta" ]
+        then
+            echo "Error: ${fasta} file not found."
+            exit 1
+        fi
+
         bowtie2-build ${fasta} $build_id > ${build_id}_bowtie2_build.log
         """
     }
 } else {
-    bowtieIndexId_1_4 = Channel.value(params.index.split("/").last())
-    bowtieIndex_1_4 = Channel.fromPath("${params.index}*.bt2").collect().toList()
+    bowtieIndexId_1_4 = Channel.value(params.index_1_4.split("/").last())
+    bowtieIndex_1_4 = Channel.fromPath("${params.index_1_4}*.bt2").collect().toList()
 }
 
 
@@ -471,7 +493,23 @@ file ".versions"
 
     script:
     """
-    bowtie2 -x $index -1 ${fastq_pair[0]} -2 ${fastq_pair[1]} -p $task.cpus 1> ${sample_id}.bam 2> ${sample_id}_bowtie2.log
+    {
+        bowtie2 -x $index -1 ${fastq_pair[0]} -2 ${fastq_pair[1]} -p $task.cpus 1> ${sample_id}.bam 2> ${sample_id}_bowtie2.log
+
+        if [ "$clear" = "true" ];
+        then
+            work_regex=".*/work/.{2}/.{30}/.*"
+            file_source1=\$(readlink -f \$(pwd)/${fastq_pair[0]})
+            file_source2=\$(readlink -f \$(pwd)/${fastq_pair[1]})
+            if [[ "\$file_source1" =~ \$work_regex ]]; then
+                rm \$file_source1 \$file_source2
+            fi
+        fi
+
+        echo pass > .status
+    } || {
+        echo fail > .status
+    }
     """
 }
 
@@ -550,44 +588,47 @@ megahit_in = Channel.create()
 retrieve_mapped_out_1_4.into{ spades_in; megahit_in }
 
 //EXPECTED GENOME SIZE
-if ( !params.minimumContigSize.toString().isNumber() ){
-    exit 1, "'minimumContigSize' parameter must be a number. Provided value: '${params.minimumContigSize}'"
+if ( !params.minimumContigSize_1_6.toString().isNumber() ){
+    exit 1, "'minimumContigSize_1_6' parameter must be a number. Provided value: '${params.minimumContigSize_1_6}'"
 }
 
 //SPADES OPTIONS
-if ( !params.spadesMinCoverage.toString().isNumber() ){
-    exit 1, "'spadesMinCoverage' parameter must be a number. Provided value: '${params.spadesMinCoverage}'"
+if ( !params.spadesMinCoverage_1_6.toString().isNumber() ){
+    exit 1, "'spadesMinCoverage_1_6' parameter must be a number. Provided value: '${params.spadesMinCoverage_1_6}'"
 }
-if ( !params.spadesMinKmerCoverage.toString().isNumber()){
-    exit 1, "'spadesMinKmerCoverage' parameter must be a number. Provided value: '${params.spadesMinKmerCoverage}'"
+if ( !params.spadesMinKmerCoverage_1_6.toString().isNumber()){
+    exit 1, "'spadesMinKmerCoverage_1_6' parameter must be a number. Provided value: '${params.spadesMinKmerCoverage_1_6}'"
 }
 
-if ( params.spadesKmers.toString().split(" ").size() <= 1 ){
-    if (params.spadesKmers.toString() != 'auto'){
-        exit 1, "'spadesKmers' parameter must be a sequence of space separated numbers or 'auto'. Provided value: ${params.spadesKmers}"
+if ( params.spadesKmers_1_6.toString().split(" ").size() <= 1 ){
+    if (params.spadesKmers_1_6.toString() != 'auto'){
+        exit 1, "'spadesKmers_1_6' parameter must be a sequence of space separated numbers or 'auto'. Provided value: ${params.spadesKmers_1_6}"
     }
 }
 
-clear = params.clearAtCheckpoint ? "true" : "false"
-checkpointClear_1_6 = Channel.value(clear)
+clear = params.clearInput_1_6 ? "true" : "false"
+checkpointClearSpades_1_6 = Channel.value(clear)
+checkpointClearMegahit_1_6 = Channel.value(clear)
 
 //MEGAHIT OPTIONS
-if ( params.megahitKmers.toString().split(" ").size() <= 1 ){
-    if (params.megahitKmers.toString() != 'auto'){
-        exit 1, "'megahitKmers' parameter must be a sequence of space separated numbers or 'auto'. Provided value: ${params.megahitKmers}"
+if ( params.megahitKmers_1_6.toString().split(" ").size() <= 1 ){
+    if (params.megahitKmers_1_6.toString() != 'auto'){
+        exit 1, "'megahitKmers_1_6' parameter must be a sequence of space separated numbers or 'auto'. Provided value: ${params.megahitKmers_1_6}"
     }
 }
 
 //SPADES INPUT CHANNELS
-IN_spades_opts_1_6 = Channel.value([params.spadesMinCoverage,params.spadesMinKmerCoverage])
-IN_spades_kmers_1_6 = Channel.value(params.spadesKmers)
+IN_spades_opts_1_6 = Channel.value([params.spadesMinCoverage_1_6,params.spadesMinKmerCoverage_1_6])
+IN_spades_kmers_1_6 = Channel.value(params.spadesKmers_1_6)
 
 //MEGAGIT INPUT CHANNELS
-IN_megahit_kmers_1_6 = Channel.value(params.megahitKmers)
+IN_megahit_kmers_1_6 = Channel.value(params.megahitKmers_1_6)
 
 SIDE_max_len_spades = Channel.create()
 SIDE_max_len_megahit = Channel.create()
 SIDE_max_len_1_6.into{SIDE_max_len_spades ; SIDE_max_len_megahit}
+
+disableRR_1_6 = "false"
 
 process va_spades_1_6 {
 
@@ -608,7 +649,8 @@ process va_spades_1_6 {
     set sample_id, file(fastq_pair), max_len from spades_in.join(SIDE_max_len_spades)
     val opts from IN_spades_opts_1_6
     val kmers from IN_spades_kmers_1_6
-    val clear from checkpointClear_1_6
+    val clear from checkpointClearSpades_1_6
+    val disable_rr from disableRR_1_6
 
     output:
     set sample_id, file({task.exitStatus == 1 ? ".exitcode" : '*_spades*.fasta'}) into assembly_spades
@@ -652,7 +694,7 @@ class VerifyCompletness {
 
 megahit = Channel.create()
 good_assembly = Channel.create()
-assembly_spades.choice(good_assembly, megahit){a -> a[1].toString() == "null" ? false : VerifyCompletness.contigs(a[1].toString(), params.minimumContigSize.toInteger()) == true ? 0 : 1}
+assembly_spades.choice(good_assembly, megahit){a -> a[1].toString() == "null" ? false : VerifyCompletness.contigs(a[1].toString(), params.minimumContigSize_1_6.toInteger()) == true ? 0 : 1}
 
 
 process va_megahit_1_6  {
@@ -671,6 +713,7 @@ process va_megahit_1_6  {
     input:
     set sample_id, file(fastq_pair), max_len from megahit_in.join(megahit).map{ ot -> [ot[0], ot[1]] }.join(SIDE_max_len_megahit)
     val kmers from IN_megahit_kmers_1_6
+    val clear from checkpointClearSpades_1_6
 
     output:
     set sample_id, file('*megahit*.fasta') into megahit_assembly
@@ -685,7 +728,7 @@ file ".versions"
 
 
 good_assembly.mix(megahit_assembly).into{ to_report_1_6 ; viral_assembly_out_1_5 }
-orf_size = Channel.value(params.minimumContigSize)
+orf_size = Channel.value(params.minimumContigSize_1_6)
 
 
 process report_viral_assembly_1_6 {
@@ -715,17 +758,17 @@ file ".versions"
 
 
 
-if ( !params.minAssemblyCoverage.toString().isNumber() ){
-    if (params.minAssemblyCoverage.toString() != 'auto'){
-        exit 1, "'minAssemblyCoverage' parameter must be a number or 'auto'. Provided value: ${params.minAssemblyCoverage}"
+if ( !params.minAssemblyCoverage_1_7.toString().isNumber() ){
+    if (params.minAssemblyCoverage_1_7.toString() != 'auto'){
+        exit 1, "'minAssemblyCoverage_1_7' parameter must be a number or 'auto'. Provided value: ${params.minAssemblyCoverage_1_7}"
     }
 }
-if ( !params.AMaxContigs.toString().isNumber() ){
-    exit 1, "'AMaxContigs' parameter must be a number. Provide value: '${params.AMaxContigs}'"
+if ( !params.AMaxContigs_1_7.toString().isNumber() ){
+    exit 1, "'AMaxContigs_1_7' parameter must be a number. Provide value: '${params.AMaxContigs_1_7}'"
 }
 
-IN_assembly_mapping_opts_1_7 = Channel.value([params.minAssemblyCoverage,params.AMaxContigs])
-IN_genome_size_1_7 = Channel.value(params.genomeSize)
+IN_assembly_mapping_opts_1_7 = Channel.value([params.minAssemblyCoverage_1_7,params.AMaxContigs_1_7])
+IN_genome_size_1_7 = Channel.value(params.genomeSize_1_7)
 
 
 process assembly_mapping_1_7 {
@@ -826,6 +869,9 @@ SIDE_BpCoverage_1_7.set{ SIDE_BpCoverage_1_8 }
 
 
 
+clear = params.clearInput_1_8 ? "true" : "false"
+checkpointClear_1_8 = Channel.value(clear)
+
 process pilon_1_8 {
 
     // Send POST request to platform
@@ -842,6 +888,7 @@ process pilon_1_8 {
 
     input:
     set sample_id, file(assembly), file(bam_file), file(bam_index) from assembly_mapping_out_1_6
+    val clear from checkpointClear_1_8
 
     output:
     set sample_id, '*_polished.fasta' into pilon_out_1_7, pilon_report_1_8
@@ -855,6 +902,17 @@ file ".versions"
         pilon_mem=${String.valueOf(task.memory).substring(0, String.valueOf(task.memory).length() - 1).replaceAll("\\s", "")}
         java -jar -Xms256m -Xmx\${pilon_mem} /NGStools/pilon-1.22.jar --genome $assembly --frags $bam_file --output ${assembly.name.replaceFirst(~/\.[^\.]+$/, '')}_polished --changes --threads $task.cpus >> .command.log 2>&1
         echo pass > .status
+
+        if [ "$clear" = "true" ];
+        then
+            work_regex=".*/work/.{2}/.{30}/.*"
+            assembly_file=\$(readlink -f \$(pwd)/${assembly})
+            bam_file=\$(readlink -f \$(pwd)/${bam_file})
+            if [[ "\$assembly_file" =~ \$work_regex ]]; then
+                rm \$assembly_file \$bam_file
+            fi
+        fi
+
     } || {
         echo fail > .status
     }
@@ -909,11 +967,11 @@ process compile_pilon_report_1_8 {
 
 
 // Check for the presence of absence of the minimum contig size parameter
-if (params.size == null){
+if (params.size_1_9 == null){
     exit 1, "A minimum contig size must be provided."
 }
 
-IN_min_contig_size_1_9 = Channel.value(params.size)
+IN_min_contig_size_1_9 = Channel.value(params.size_1_9)
 
 process split_assembly_1_9 {
 
@@ -943,20 +1001,18 @@ file ".versions"
 
 
 }
-_split_assembly_out_1_8 = Channel.create()
+split_assembly_out_1_8 = Channel.create()
 
 splitCh_1_9.flatMap().map{ it -> [it.toString().tokenize('/').last().tokenize('.')[0..-2].join('.'), it] }
-    .into(_split_assembly_out_1_8)
+    .into(split_assembly_out_1_8)
 
 
-_split_assembly_out_1_8.into{ split_assembly_out_1_8;dengue_typing_in_1_9;mafft_in_1_10 }
-
-process dengue_typing_2_10 {
+process dengue_typing_1_10 {
 
     // Send POST request to platform
         if ( params.platformHTTP != null ) {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 2_10 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 2_10 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 2_10 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId dengue_typing_2_10 \"$params.platformSpecies\" true"
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_10 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_10 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_10 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId dengue_typing_1_10 \"$params.platformSpecies\" true"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
@@ -966,12 +1022,14 @@ process dengue_typing_2_10 {
     publishDir "results/dengue_typing/${sample_id}/"
 
     input:
-    set sample_id, file(assembly) from dengue_typing_in_1_9
+    set sample_id, file(assembly) from split_assembly_out_1_8
 
     output:
     file "seq_typing*"
-    set sample_id, val("2_10_dengue_typing"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_dengue_typing_2_10
-set sample_id, val("dengue_typing_2_10"), val("2_10"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_dengue_typing_2_10
+    set sample_id, file(assembly) into dengue_typing_out_1_9
+    file("*.fa") optional true into _ref_seqTyping_1_10
+    set sample_id, val("1_10_dengue_typing"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_dengue_typing_1_10
+set sample_id, val("dengue_typing_1_10"), val("1_10"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_dengue_typing_1_10
 file ".versions"
 
     script:
@@ -981,17 +1039,23 @@ file ".versions"
         mkdir rematch_temp
         cp -r /NGStools/ReMatCh rematch_temp
         export PATH="\$(pwd)/rematch_temp/ReMatCh:\$PATH"
-
         seq_typing.py assembly --org Dengue Virus -f ${assembly} -o ./ -j $task.cpus -t nucl
 
+        if [ ${params.reference_1_10 } == "true" ];
+        then
+            awk 'NR == 2 { print \$4 }' seq_typing.report_types.tab > reference
+            parse_fasta.py -t \$(cat reference)  -f /NGStools/seq_typing/reference_sequences/dengue_virus/1_GenotypesDENV_14-05-18.fasta
+            json_str="{'tableRow':[{'sample':'${sample_id}','data':[{'header':'seqtyping','value':'\$(cat seq_typing.report.txt)','table':'typing'}]}],'metadata':[{'sample':'${sample_id}','treeData':'\$(cat seq_typing.report.txt)','column':'typing'},{'sample':'\$(cat header.txt)','treeData':'\$(cat seq_typing.report.txt)','column':'typing'}]}"
+        else
+            json_str="{'tableRow':[{'sample':'${sample_id}','data':[{'header':'seqtyping','value':'\$(cat seq_typing.report.txt)','table':'typing'}]}],'metadata':[{'sample':'${sample_id}','treeData':'\$(cat seq_typing.report.txt)','column':'typing'}]}"
+        fi
+
+
         # Add information to dotfiles
-        json_str="{'tableRow':[{'sample':'${sample_id}','data':[{'header':'seqtyping','value':'\$(cat seq_typing.report.txt)','table':'typing'}]}],'metadata':[{'sample':'${sample_id}','treeData':'\$(cat seq_typing.report.txt)','column':'typing'}]}"
         echo \$json_str > .report.json
         version_str="[{'program':'seq_typing.py','version':'0.1'}]"
         echo \$version_str > .versions
-
         rm -r rematch_temp
-
         if [ -s seq_typing.report.txt ];
         then
             echo pass > .status
@@ -1007,31 +1071,45 @@ file ".versions"
 
 }
 
-process mafft_3_11 {
+
+_ref_seqTyping_1_10.set{ _ref_seqTyping_1_11 }
+
+
+// True when a dengue_typing secondary channel is connected
+has_ref_1_11 = binding.hasVariable('_ref_seqTyping_1_11')
+
+if ( has_ref_1_11 ){
+    dengue_typing_out_1_9.map{ it[1] }.collect().mix(_ref_seqTyping_1_11.unique{it.name}).set{mafft_input}
+} else {
+    dengue_typing_out_1_9.map{ it[1] }.collect().set{mafft_input}
+}
+
+//dengue_typing_out_1_9.map{ it[1] }.mix(_ref_seqTyping_1_11.unique()).set{mafft_input}
+
+process mafft_1_11 {
 
         if ( params.platformHTTP != null ) {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 3_11 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 3_11 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 3_11 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId mafft_3_11 \"$params.platformSpecies\" true"
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_11 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_11 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_11 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId mafft_1_11 \"$params.platformSpecies\" true"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
 
     tag { 'mafft' }
 
-    publishDir "results/alignment/mafft_3_11/"
+    publishDir "results/alignment/mafft_1_11/"
 
     input:
-    file(assembly) from mafft_in_1_10.map{ it[1] }.collect()
+    file(assembly) from mafft_input.collect()
 
     output:
-    file ("*.align") into mafft_out_3_10
-    set val('single'), val("3_11_mafft"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_mafft_3_11
-set val('single'), val("mafft_3_11"), val("3_11"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_mafft_3_11
+    file ("*.align") into mafft_out_1_10
+    set val('single'), val("1_11_mafft"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_mafft_1_11
+set val('single'), val("mafft_1_11"), val("1_11"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_mafft_1_11
 file ".versions"
 
     script:
     """
-
     cat ${assembly} > all_assemblies.fasta
 
     mafft --adjustdirection --thread $task.cpus --auto all_assemblies.fasta > ${workflow.scriptName}.align
@@ -1040,34 +1118,34 @@ file ".versions"
 }
 
 
-IN_substitution_model_3_12 = Channel.value(params.substitutionModel)
-IN_seed_number_3_12 = Channel.value(params.seedNumber)
-IN_bootstrap_number_3_12 = Channel.value(params.bootstrap)
+IN_substitution_model_1_12 = Channel.value(params.substitutionModel_1_12)
+IN_seed_number_1_12 = Channel.value(params.seedNumber_1_12)
+IN_bootstrap_number_1_12 = Channel.value(params.bootstrap_1_12)
 
-process raxml_3_12 {
+process raxml_1_12 {
 
         if ( params.platformHTTP != null ) {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 3_12 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 3_12 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 3_12 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId raxml_3_12 \"$params.platformSpecies\" true"
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_12 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_12 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_12 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId raxml_1_12 \"$params.platformSpecies\" true"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
 
     tag { 'raxml' }
 
-    publishDir "results/phylogeny/raxml_3_12/"
+    publishDir "results/phylogeny/raxml_1_12/"
 
     input:
-    file(alignment) from mafft_out_3_10
-    val substitution_model from IN_substitution_model_3_12
-    val seednumber from IN_seed_number_3_12
-    val bootstrapnumber from IN_bootstrap_number_3_12
+    file(alignment) from mafft_out_1_10
+    val substitution_model from IN_substitution_model_1_12
+    val seednumber from IN_seed_number_1_12
+    val bootstrapnumber from IN_bootstrap_number_1_12
 
     output:
-    file ("RAxML_*") into raxml_out_3_11
-    file ("RAxML_bipartitions.*.nf") into into_json_3_12
-    set val('single'), val("3_12_raxml"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_raxml_3_12
-set val('single'), val("raxml_3_12"), val("3_12"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_raxml_3_12
+    file ("RAxML_*") into raxml_out_1_11
+    file ("RAxML_bipartitions.*.nf") into into_json_1_12
+    set val('single'), val("1_12_raxml"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_raxml_1_12
+set val('single'), val("raxml_1_12"), val("1_12"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_raxml_1_12
 file ".versions"
 
     script:
@@ -1081,11 +1159,11 @@ file ".versions"
 
 }
 
-process report_raxml_3_12 {
+process report_raxml_1_12 {
 
         if ( params.platformHTTP != null ) {
-        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 3_12 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 3_12 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 3_12 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId raxml_3_12 \"$params.platformSpecies\" true"
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_12 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_12 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_12 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId raxml_1_12 \"$params.platformSpecies\" true"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
@@ -1093,11 +1171,11 @@ process report_raxml_3_12 {
     tag { 'raxml' }
 
     input:
-    file(newick) from into_json_3_12
+    file(newick) from into_json_1_12
 
     output:
-    set val('single'), val("3_12_report_raxml"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_raxml_3_12
-set val('single'), val("report_raxml_3_12"), val("3_12"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_raxml_3_12
+    set val('single'), val("1_12_report_raxml"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_report_raxml_1_12
+set val('single'), val("report_raxml_1_12"), val("1_12"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_report_raxml_1_12
 file ".versions"
 
     script:
@@ -1117,7 +1195,7 @@ process status {
     publishDir "pipeline_status/$task_name"
 
     input:
-    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_bowtie_1_4,STATUS_report_bowtie_1_4,STATUS_retrieve_mapped_1_5,STATUS_va_spades_1_6,STATUS_va_megahit_1_6,STATUS_report_viral_assembly_1_6,STATUS_assembly_mapping_1_7,STATUS_process_am_1_7,STATUS_pilon_1_8,STATUS_pilon_report_1_8,STATUS_split_assembly_1_9,STATUS_dengue_typing_2_10,STATUS_mafft_3_11,STATUS_raxml_3_12,STATUS_report_raxml_3_12)
+    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_bowtie_1_4,STATUS_report_bowtie_1_4,STATUS_retrieve_mapped_1_5,STATUS_va_spades_1_6,STATUS_va_megahit_1_6,STATUS_report_viral_assembly_1_6,STATUS_assembly_mapping_1_7,STATUS_process_am_1_7,STATUS_pilon_1_8,STATUS_pilon_report_1_8,STATUS_split_assembly_1_9,STATUS_dengue_typing_1_10,STATUS_mafft_1_11,STATUS_raxml_1_12,STATUS_report_raxml_1_12)
 
     output:
     file '*.status' into master_status
@@ -1186,7 +1264,7 @@ process report {
             pid,
             report_json,
             version_json,
-            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_bowtie_1_4,REPORT_report_bowtie_1_4,REPORT_retrieve_mapped_1_5,REPORT_va_spades_1_6,REPORT_va_megahit_1_6,REPORT_report_viral_assembly_1_6,REPORT_assembly_mapping_1_7,REPORT_process_am_1_7,REPORT_pilon_1_8,REPORT_pilon_report_1_8,REPORT_split_assembly_1_9,REPORT_dengue_typing_2_10,REPORT_mafft_3_11,REPORT_raxml_3_12,REPORT_report_raxml_3_12)
+            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_bowtie_1_4,REPORT_report_bowtie_1_4,REPORT_retrieve_mapped_1_5,REPORT_va_spades_1_6,REPORT_va_megahit_1_6,REPORT_report_viral_assembly_1_6,REPORT_assembly_mapping_1_7,REPORT_process_am_1_7,REPORT_pilon_1_8,REPORT_pilon_report_1_8,REPORT_split_assembly_1_9,REPORT_dengue_typing_1_10,REPORT_mafft_1_11,REPORT_raxml_1_12,REPORT_report_raxml_1_12)
 
     output:
     file "*" optional true into master_report
