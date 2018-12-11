@@ -57,4 +57,9 @@ More information on how to personalize the config files can be found in the [wik
 
 ## Output and Report
 
-*under construction* 
+The output files are stored in the `results` folder in the directory where the workflow was executed. 
+The nextflow log file for the execution of the pipeline can be found in the directory of execution. Log files for each
+of the components in the workflow are stored inside the `results` folder.
+DEN-IM creates an **interactive HTML report**, stored in the `pipeline_results` folder in the directory where the 
+workflow was executed. To open the report simply click oh the **pipeline_report.html** file and the report will open on
+ your default browser. 
