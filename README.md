@@ -38,7 +38,7 @@ with all engines available. If not, you’ll need to install one.
 * **Local Instalation** 
 
 A local installation of DEN-IM is also required as Nextflow's pipeline sharing is not compatible with DEN-IM's 
-architecture. You can clone this repository with `git clone https://github.com/assemblerflow/DEN-IM.git`, and all 
+architecture. You can clone this repository with `git clone https://github.com/B-UMMI/DEN-IM.git`, and all 
 files will be in your local machine.
 
 
