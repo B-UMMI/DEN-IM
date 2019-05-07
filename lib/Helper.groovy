@@ -55,15 +55,15 @@ class Help {
         println "    nextflow run DEN-IM.nf"
         println ""
         println "       --fastq                     Path expression to paired-end fastq files. (default: $params.fastq) "
-        println "       --genomeSize                Genome size estimate for the samples in Mb. It is used to estimate the coverage and other assembly parameters andchecks (integrity_coverage;assembly_mapping)"
-        println "       --minCoverage               Minimum coverage for a sample to proceed. By default it's setto 0 to allow any coverage (integrity_coverage)"
+        println "       --genomeSize                Genome size estimate for the samples in Mb. It is used to estimate the coverage and other assembly parameters andchecks (integrity_coverage;check_coverage;assembly_mapping)"
+        println "       --minCoverage               Minimum coverage for a sample to proceed. By default it's setto 0 to allow any coverage (integrity_coverage;check_coverage)"
         println "       --adapters                  Path to adapters files, if any. (fastqc_trimmomatic)"
         println "       --trimSlidingWindow         Perform sliding window trimming, cutting once the average quality within the window falls below a threshold. (fastqc_trimmomatic)"
         println "       --trimLeading               Cut bases off the start of a read, if below a threshold quality. (fastqc_trimmomatic)"
         println "       --trimTrailing              Cut bases of the end of a read, if below a threshold quality. (fastqc_trimmomatic)"
         println "       --trimMinLength             Drop the read if it is below a specified length. (fastqc_trimmomatic)"
         println "       --clearInput                Permanently removes temporary input files. This option is only useful to remove temporary files in large workflows and prevents nextflow's resume functionality. Use with caution. (fastqc_trimmomatic;filter_poly;bowtie;retrieve_mapped;viral_assembly;pilon)"
-        println "       --adapter                   Pattern to filter the reads. Please separate parametervalues with a space and separate new parameter sets with semicolon (;). Parameters are defined by two values: the pattern (any combination of the letters ATCGN), and the number of repeats or percentage of occurence. (filter_poly)"
+        println "       --pattern                   Pattern to filter the reads. Please separate parametervalues with a space and separate new parameter sets with semicolon (;). Parameters are defined by two values: the pattern (any combination of the letters ATCGN), and the number of repeats or percentage of occurence. (filter_poly)"
         println "       --reference                 Specifies the reference genome to be provided to bowtie2-build. (bowtie)"
         println "       --index                     Specifies the reference indexes to be provided to bowtie2. (bowtie)"
         println "       --minimumContigSize         Expected genome size in bases (viral_assembly)"
@@ -73,11 +73,13 @@ class Help {
         println "       --megahitKmers              If 'auto' the megahit k-mer lengths will be determined from the maximum read length of each assembly. If 'default', megahit will use the default k-mer lengths. (default: $params.megahitKmers) (viral_assembly)"
         println "       --minAssemblyCoverage       In auto, the default minimum coverage for each assembled contig is 1/3 of the assembly mean coverage or 10x, if the mean coverage is below 10x (assembly_mapping)"
         println "       --AMaxContigs               A warning is issued if the number of contigs is overthis threshold. (assembly_mapping)"
-        println "       --size                      Minimum contig size (split_assembly)"
-        println "       --get_reference             Retrieves the sequence of the closest reference. (dengue_typing)"
+        println "       --splitSize                 Minimum contig size (split_assembly)"
+        println "       --typingReference           Typing database. (dengue_typing)"
+        println "       --getGenome                 Retrieves the sequence of the closest reference. (dengue_typing)"
         println "       --substitutionModel         Substitution model. Option: GTRCAT, GTRCATI, ASC_GTRCAT, GTRGAMMA, ASC_GTRGAMMA etc  (raxml)"
         println "       --seedNumber                Specify an integer number (random seed) and turn on rapid bootstrapping (raxml)"
         println "       --bootstrap                 Specify the number of alternative runs on distinct starting trees (raxml)"
+        println "       --simpleLabel               Simplify the labels in the newick tree (for interactive report only) (raxml)"
         
     }
 
@@ -87,8 +89,8 @@ class CollectInitialMetadata {
 
     public static void print_metadata(nextflow.script.WorkflowMetadata workflow){
 
-        def treeDag = new File(".treeDag.json").text
-        def forkTree = new File(".forkTree.json").text
+        def treeDag = new File("${workflow.projectDir}/.treeDag.json").text
+        def forkTree = new File("${workflow.projectDir}/.forkTree.json").text
 
         def metadataJson = "{'nfMetadata':{'scriptId':'${workflow.scriptId}',\
 'scriptName':'${workflow.scriptName}',\
