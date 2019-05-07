@@ -70,4 +70,7 @@ your default browser.
 
 ## Citation and Contacts
 
-DEN-IM was developed by the [Molecular Microbiology and Infection Unit](http://darwin.phyloviz.net/wiki/doku.php), at Instituto de Medicina Molecular, in collaboration with [Personalised Microbiology Lab](https://rossenlab.com/) at UMCG.
+DEN-IM was developed by the [Molecular Microbiology and Infection Unit](http://darwin.phyloviz.net/wiki/doku.php), at 
+Instituto de Medicina Molecular, in collaboration with [Personalised Microbiology Lab](https://rossenlab.com/) at UMCG. 
+A pre-print is available at [biorxiv](https://www.biorxiv.org/content/10.1101/628073v1).
+
