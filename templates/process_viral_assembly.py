@@ -139,7 +139,6 @@ class Assembly:
 
         self.nORFs = ORF
 
-
     @staticmethod
     def _parse_coverage(header_str):
         """Attempts to retrieve the coverage value from the header string.
