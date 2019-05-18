@@ -45,9 +45,8 @@ class Help {
 
         println ""
         println "============================================================"
-        println "                F L O W C R A F T"
+      println "                     D E N - I M"
         println "============================================================"
-        println "Built using flowcraft v1.4.0"
         println ""
         println ""
         println "Usage: "
