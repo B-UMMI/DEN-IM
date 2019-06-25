@@ -1036,7 +1036,7 @@ process compile_pilon_report_1_9 {
 
 
 // Check for the presence of absence of the minimum contig size parameter
-if (params.size == null){
+if (params.splitSize == null){
     exit 1, "A minimum contig size must be provided."
 }
 
