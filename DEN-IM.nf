@@ -1258,6 +1258,8 @@ process raxml_1_13 {
     tag { 'raxml' }
 
     publishDir "results/phylogeny/raxml_1_13/"
+    
+    errorStrategy { task.exitStatus == 120 ? 'ignore' : 'retry' }
 
     input:
     file(alignment) from mafft_out_1_11
@@ -1274,6 +1276,13 @@ file ".versions"
 
     script:
     """
+    samples=`cat ${alignment} | grep ">" | wc -l`;
+    if [ \$samples > 4 ]
+    then
+        echo ERROR: Too few species! RAxML is very unhappy!
+        exit 120
+    fi
+    
     raxmlHPC -s ${alignment} -p 12345 -m ${substitution_model} -T $task.cpus -n $workflow.scriptName -f a -x ${seednumber} -N ${bootstrapnumber}
 
     # Add information to dotfiles
