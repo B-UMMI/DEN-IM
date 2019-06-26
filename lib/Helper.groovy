@@ -75,6 +75,7 @@ class Help {
         println "       --AMaxContigs               A warning is issued if the number of contigs is overthis threshold. (assembly_mapping)"
         println "       --splitSize                 Minimum contig size (split_assembly)"
         println "       --typingReference           Typing database. (dengue_typing)"
+        println "       --includeNCBI               Include NCBI DENV references in alignment. (mafft))"
         println "       --getGenome                 Retrieves the sequence of the closest reference. (dengue_typing)"
         println "       --substitutionModel         Substitution model. Option: GTRCAT, GTRCATI, ASC_GTRCAT, GTRGAMMA, ASC_GTRGAMMA etc  (raxml)"
         println "       --seedNumber                Specify an integer number (random seed) and turn on rapid bootstrapping (raxml)"
