@@ -73,6 +73,7 @@ def __get_version_seq_typing():
 
     return version
 
+
 def replace_char(text):
     """
     Cleans the string from problematic chars

@@ -1209,6 +1209,9 @@ if ( has_ref_1_12 ){
 
 //dengue_typing_out_1_10.map{ it[1] }.mix(_ref_seqTyping_1_12.unique()).set{mafft_input}
 
+include_ncbi = params.includeNCBI ? "true" : "false"
+IN_ncbi_1_12 = Channel.value(include_ncbi)
+
 process mafft_1_12 {
 
         if ( params.platformHTTP != null ) {
@@ -1224,6 +1227,7 @@ process mafft_1_12 {
 
     input:
     file(assembly) from mafft_input.collect()
+    val ncbi from IN_ncbi_1_12
 
     output:
     file ("*.align") into mafft_out_1_11
@@ -1234,6 +1238,15 @@ file ".versions"
     script:
     """
     cat ${assembly} > all_assemblies.fasta
+
+    samples=`cat all_assemblies.fasta | grep ">" | wc -l`;
+
+    if [ \$samples > 4 ] || [ $ncbi = "true" ]
+    then
+        cat ${workflow.projectDir}/ref/NCBI.fasta >> all_assemblies.fasta
+        echo '{"metadata":[{"sample":"NCBI-DENV-1","treeData":"1-IV","column":"typing"},{"sample":"NCBI-DENV-2","treeData":"2-V(AsianI)","column":"typing"},{"sample":"NCBI-DENV-3","treeData":"3-III","column":"typing"},{"sample":"NCBI-DENV-4","treeData":"4-II","column":"typing"}]}' > .report.json
+    fi
+
 
     mafft --adjustdirection --thread $task.cpus --auto all_assemblies.fasta > ${workflow.scriptName}.align
     """
@@ -1277,7 +1290,7 @@ file ".versions"
     script:
     """
     samples=`cat ${alignment} | grep ">" | wc -l`;
-    if [ \$samples > 4 ]
+    if (( \$samples < 4 ))
     then
         echo ERROR: Too few species! RAxML is very unhappy!
         exit 120
