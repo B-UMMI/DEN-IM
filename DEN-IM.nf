@@ -5,9 +5,9 @@ import CollectInitialMetadata
 
 // Pipeline version
 if (workflow.commitId){
-    version = "0.1 $workflow.revision"
+    version = "2.1 $workflow.revision"
 } else {
-    version = "0.1 (local version)"
+    version = "2.1 (local version)"
 }
 
 params.help = false
@@ -38,7 +38,7 @@ if (params.containsKey("accessions")){
     }
 }
 
-Help.start_info(infoMap, "$workflow.start", "$workflow.profile")
+Help.start_info(infoMap, "$workflow.start", "$workflow.profile", version)
 CollectInitialMetadata.print_metadata(workflow)
     
 

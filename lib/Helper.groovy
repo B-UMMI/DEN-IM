@@ -1,6 +1,6 @@
 class Help {
 
-    static def start_info(Map info, String time, String profile) {
+    static def start_info(Map info, String time, String profile, String version) {
 
         println ""
         println "============================================================"
@@ -21,6 +21,7 @@ class Help {
         println " Reports are found in        : ./reports"
         println " Results are found in        : ./results"
         println " Profile                     : $profile"
+        println " Version                     : $version"
         println ""
         println "Starting pipeline at $time"
         println ""
