@@ -22,7 +22,7 @@ Before installing DEN-IM, a few dependencies must be installed in your system:
 
 * **Nextflow**
 
-Nextflow (version 0.26.x or higher) can be used on any POSIX compatible system (Linux, OS X, etc). It requires BASH and 
+Nextflow (version 0.31.0 or higher) can be used on any POSIX compatible system (Linux, OS X, etc). It requires BASH and 
 Java 8 (or higher) to be installed. More instructions are available [here](https://www.nextflow.io/docs/latest/getstarted.html).
 
 * **Container Engine**
