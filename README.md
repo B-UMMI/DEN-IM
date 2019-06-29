@@ -1,5 +1,7 @@
 # DEN-IM
 
+![DEN-IM_logo](https://user-images.githubusercontent.com/15690332/60383483-47e5d900-9a69-11e9-9808-3a1d9023a32a.png)
+
 DEN-IM is a  one-stop, user-friendly, containerised and reproducible workflow for the analysis of DENV sequencing data, 
 both from shotgun and targeted metagenomics approaches.
 Is is able to infer DENV coding sequence (CDS), identify serotype and genotype, and generate a phylogenetic tree.
