@@ -1,5 +1,7 @@
 # DEN-IM
 
+![DEN-IM_logo](https://user-images.githubusercontent.com/15690332/60383483-47e5d900-9a69-11e9-9808-3a1d9023a32a.png)
+
 DEN-IM is a  one-stop, user-friendly, containerised and reproducible workflow for the analysis of DENV sequencing data, 
 both from shotgun and targeted metagenomics approaches.
 Is is able to infer DENV coding sequence (CDS), identify serotype and genotype, and generate a phylogenetic tree.
@@ -20,7 +22,7 @@ Before installing DEN-IM, a few dependencies must be installed in your system:
 
 * **Nextflow**
 
-Nextflow (version 0.26.x or higher) can be used on any POSIX compatible system (Linux, OS X, etc). It requires BASH and 
+Nextflow (version 0.31.0 or higher) can be used on any POSIX compatible system (Linux, OS X, etc). It requires BASH and 
 Java 8 (or higher) to be installed. More instructions are available [here](https://www.nextflow.io/docs/latest/getstarted.html).
 
 * **Container Engine**
