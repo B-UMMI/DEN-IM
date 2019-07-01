@@ -5,9 +5,9 @@ import CollectInitialMetadata
 
 // Pipeline version
 if (workflow.commitId){
-    version = "2.1 $workflow.revision"
+    version = "2.2 $workflow.revision"
 } else {
-    version = "2.1 (local version)"
+    version = "2.2 (local version)"
 }
 
 params.help = false
@@ -1138,7 +1138,7 @@ process dengue_typing_assembly_1_11 {
 
 
     input:
-    set sample_id, file(assembly), file(reference) from type_assembly_1_11
+    set sample_id, file(assembly) from type_assembly_1_11
     val get_reference from reference_assembly_1_11
     each file(reference) from Channel.fromPath("${params.reference}")
 
