@@ -57,6 +57,7 @@ import re
 import json
 import fileinput
 import subprocess
+import gzip
 
 from subprocess import PIPE
 from collections import OrderedDict
@@ -219,6 +220,14 @@ def write_report(storage_dic, output_file, sample_id):
                 }],
                 "badReads": vals["bad_reads"]
             }
+
+            # in cases where all reads where trimmed
+            if vals["clean_len"] == 0:
+                json_dic["fail"] = [{
+                    "sample": sample_id,
+                    "table": "qc",
+                    "value": ["No data left after trimming."]
+                }]
             json_rep.write(json.dumps(json_dic, separators=(",", ":")))
 
 
@@ -399,11 +408,18 @@ def main(sample_id, fastq_pair, trim_range, trim_opts, phred, adapters_file,
     # Check if trimmomatic ran successfully. If not, write the error message
     # to the status channel and exit.
     with open(".status", "w") as status_fh:
-        if p.returncode != 0:
-            status_fh.write("fail")
-            return
-        else:
-            status_fh.write("pass")
+        with open(".fail", "w") as fail_fh:
+            if p.returncode != 0:
+                status_fh.write("fail")
+                return
+            else:
+                # check if read file is empty
+                with gzip.open("{}_1_trim.fastq.gz".format(SAMPLE_ID), "r") as read1:
+                    if read1.peek(1).decode("utf-8") == '':
+                        status_fh.write("fail")
+                        fail_fh.write("No data left after trimming.")
+                        return
+                status_fh.write("pass")
 
 
 if __name__ == '__main__':

@@ -384,7 +384,9 @@ file ".versions"
     for seqfile in *.fq;
     do if [ ! -s \$seqfile  ]
     then
-        echo \$seqfile is empty && exit 120
+        echo \$seqfile is empty
+        echo 'No data left after polymorphic sequence filtering' > .fail
+        exit 120
     fi
     done
 
