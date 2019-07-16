@@ -46,7 +46,7 @@ class Help {
 
         println ""
         println "============================================================"
-        println "                 D E N - I M"
+        println "                     D E N - I M"
         println "============================================================"
         println ""
         println ""
