@@ -440,7 +440,7 @@ def main(sample_id, fastq_pair, gsize, minimum_coverage, opts):
                 status_fh.write("pass")
             # Estimated coverage does not pass minimum threshold
             else:
-                fail_msg = "Sample with low coverage ({}), below the {} " \
+                fail_msg = "Sample with low coverage ({}), below the {}x " \
                            "threshold".format(exp_coverage, minimum_coverage)
                 logger.error(fail_msg)
                 fail_fh.write(fail_msg)

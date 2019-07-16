@@ -5,9 +5,9 @@ import CollectInitialMetadata
 
 // Pipeline version
 if (workflow.commitId){
-    version = "0.1 $workflow.revision"
+    version = "2.2 $workflow.revision"
 } else {
-    version = "0.1 (local version)"
+    version = "2.2 (local version)"
 }
 
 params.help = false
@@ -38,7 +38,7 @@ if (params.containsKey("accessions")){
     }
 }
 
-Help.start_info(infoMap, "$workflow.start", "$workflow.profile")
+Help.start_info(infoMap, "$workflow.start", "$workflow.profile", version)
 CollectInitialMetadata.print_metadata(workflow)
     
 
@@ -384,7 +384,9 @@ file ".versions"
     for seqfile in *.fq;
     do if [ ! -s \$seqfile  ]
     then
-        echo \$seqfile is empty && exit 120
+        echo \$seqfile is empty
+        echo 'No data left after polymorphic sequence filtering' > .fail
+        exit 120
     fi
     done
 
@@ -1036,7 +1038,7 @@ process compile_pilon_report_1_9 {
 
 
 // Check for the presence of absence of the minimum contig size parameter
-if (params.size == null){
+if (params.splitSize == null){
     exit 1, "A minimum contig size must be provided."
 }
 
@@ -1138,7 +1140,7 @@ process dengue_typing_assembly_1_11 {
 
 
     input:
-    set sample_id, file(assembly), file(reference) from type_assembly_1_11
+    set sample_id, file(assembly) from type_assembly_1_11
     val get_reference from reference_assembly_1_11
     each file(reference) from Channel.fromPath("${params.reference}")
 
@@ -1209,6 +1211,9 @@ if ( has_ref_1_12 ){
 
 //dengue_typing_out_1_10.map{ it[1] }.mix(_ref_seqTyping_1_12.unique()).set{mafft_input}
 
+include_ncbi = params.includeNCBI ? "true" : "false"
+IN_ncbi_1_12 = Channel.value(include_ncbi)
+
 process mafft_1_12 {
 
         if ( params.platformHTTP != null ) {
@@ -1224,6 +1229,7 @@ process mafft_1_12 {
 
     input:
     file(assembly) from mafft_input.collect()
+    val ncbi from IN_ncbi_1_12
 
     output:
     file ("*.align") into mafft_out_1_11
@@ -1234,6 +1240,15 @@ file ".versions"
     script:
     """
     cat ${assembly} > all_assemblies.fasta
+
+    samples=`cat all_assemblies.fasta | grep ">" | wc -l`;
+
+    if [ \$samples > 4 ] || [ $ncbi = "true" ]
+    then
+        cat ${workflow.projectDir}/ref/NCBI.fasta >> all_assemblies.fasta
+        echo '{"metadata":[{"sample":"NCBI-DENV-1","treeData":"1-IV","column":"typing"},{"sample":"NCBI-DENV-2","treeData":"2-V(AsianI)","column":"typing"},{"sample":"NCBI-DENV-3","treeData":"3-III","column":"typing"},{"sample":"NCBI-DENV-4","treeData":"4-II","column":"typing"}]}' > .report.json
+    fi
+
 
     mafft --adjustdirection --thread $task.cpus --auto all_assemblies.fasta > ${workflow.scriptName}.align
     """
@@ -1258,6 +1273,8 @@ process raxml_1_13 {
     tag { 'raxml' }
 
     publishDir "results/phylogeny/raxml_1_13/"
+    
+    errorStrategy { task.exitStatus == 120 ? 'ignore' : 'retry' }
 
     input:
     file(alignment) from mafft_out_1_11
@@ -1274,6 +1291,13 @@ file ".versions"
 
     script:
     """
+    samples=`cat ${alignment} | grep ">" | wc -l`;
+    if (( \$samples < 4 ))
+    then
+        echo ERROR: Too few species! RAxML is very unhappy!
+        exit 120
+    fi
+    
     raxmlHPC -s ${alignment} -p 12345 -m ${substitution_model} -T $task.cpus -n $workflow.scriptName -f a -x ${seednumber} -N ${bootstrapnumber}
 
     # Add information to dotfiles
