@@ -1,6 +1,6 @@
 class Help {
 
-    static def start_info(Map info, String time, String profile) {
+    static def start_info(Map info, String time, String profile, String version) {
 
         println ""
         println "============================================================"
@@ -21,6 +21,7 @@ class Help {
         println " Reports are found in        : ./reports"
         println " Results are found in        : ./results"
         println " Profile                     : $profile"
+        println " Version                     : $version"
         println ""
         println "Starting pipeline at $time"
         println ""
@@ -45,7 +46,7 @@ class Help {
 
         println ""
         println "============================================================"
-      println "                     D E N - I M"
+        println "                     D E N - I M"
         println "============================================================"
         println ""
         println ""
@@ -73,6 +74,7 @@ class Help {
         println "       --AMaxContigs               A warning is issued if the number of contigs is overthis threshold. (assembly_mapping)"
         println "       --splitSize                 Minimum contig size (split_assembly)"
         println "       --typingReference           Typing database. (dengue_typing)"
+        println "       --includeNCBI               Include NCBI DENV references in alignment. (mafft))"
         println "       --getGenome                 Retrieves the sequence of the closest reference. (dengue_typing)"
         println "       --substitutionModel         Substitution model. Option: GTRCAT, GTRCATI, ASC_GTRCAT, GTRGAMMA, ASC_GTRGAMMA etc  (raxml)"
         println "       --seedNumber                Specify an integer number (random seed) and turn on rapid bootstrapping (raxml)"
