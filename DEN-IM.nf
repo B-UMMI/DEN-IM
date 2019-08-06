@@ -1142,7 +1142,7 @@ process dengue_typing_assembly_1_11 {
     input:
     set sample_id, file(assembly) from type_assembly_1_11
     val get_reference from reference_assembly_1_11
-    each file(reference) from Channel.fromPath("${params.reference}")
+    each file(reference) from Channel.fromPath("${params.typingReference}")
 
     output:
     file "seq_typing*"
@@ -1177,7 +1177,7 @@ process dengue_typing_reads_1_11 {
     input:
     set sample_id, file(assembly), file(fastq_pair) from type_reads_1_11.join(_LAST_fastq_1_11)
     val get_reference from reference_reads_1_11
-    each file(reference) from Channel.fromPath("${params.reference}")
+    each file(reference) from Channel.fromPath("${params.typingReference}")
 
     output:
     file "seq_typing*"
