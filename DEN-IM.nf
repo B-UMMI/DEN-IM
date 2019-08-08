@@ -1243,7 +1243,7 @@ file ".versions"
 
     samples=`cat all_assemblies.fasta | grep ">" | wc -l`;
 
-    if [ \$samples > 4 ] || [ $ncbi = "true" ]
+    if (( \$samples < 4 )) || [ $ncbi = "true" ]
     then
         cat ${workflow.projectDir}/ref/NCBI.fasta >> all_assemblies.fasta
         echo '{"metadata":[{"sample":"NCBI-DENV-1","treeData":"1-IV","column":"typing"},{"sample":"NCBI-DENV-2","treeData":"2-V(AsianI)","column":"typing"},{"sample":"NCBI-DENV-3","treeData":"3-III","column":"typing"},{"sample":"NCBI-DENV-4","treeData":"4-II","column":"typing"}]}' > .report.json
