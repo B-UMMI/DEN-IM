@@ -1,5 +1,7 @@
 # DEN-IM
 
+**warning:** DEN-IM is currently not compatible with the lastest nextflow version available on conda (19.07.0). To use DEN-IM please downgrate to version **18.10.1** until further notice (which I hope to be soon). Very sorry for the inconvinience! 
+
 ![DEN-IM_logo](https://user-images.githubusercontent.com/15690332/60383483-47e5d900-9a69-11e9-9808-3a1d9023a32a.png)
 
 DEN-IM is a  one-stop, user-friendly, containerised and reproducible workflow for the analysis of DENV sequencing data, 
