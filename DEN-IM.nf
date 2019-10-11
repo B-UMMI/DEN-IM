@@ -370,15 +370,22 @@ process filter_poly_1_3 {
     val clear from checkpointClear_1_3
 
     output:
-    set sample_id , file("${sample_id}_filtered_{1,2}.fastq.gz") into filter_poly_out_1_2
+    set sample_id , file("${sample_id}_filtered*") into filter_poly_out_1_2
     set sample_id, val("1_3_filter_poly"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_filter_poly_1_3
 set sample_id, val("filter_poly_1_3"), val("1_3"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_filter_poly_1_3
 file ".versions"
 
     script:
     """
-    gunzip -c ${fastq_pair[0]} >  ${sample_id}_1.fq
-    gunzip -c ${fastq_pair[1]} >  ${sample_id}_2.fq
+    a=(${fastq_pair})
+
+    if ((\${#a[@]} > 1));
+    then
+        gunzip -c ${fastq_pair[0]} >  ${sample_id}_1.fq
+        gunzip -c ${fastq_pair[1]} >  ${sample_id}_2.fq
+    else
+        gunzip -c ${fastq_pair[0]} >  ${sample_id}.fq
+    fi
 
     for seqfile in *.fq;
     do if [ ! -s \$seqfile  ]
@@ -389,11 +396,14 @@ file ".versions"
     fi
     done
 
-    prinseq-lite.pl --fastq ${sample_id}_1.fq  --fastq2 ${sample_id}_2.fq  --custom_params "${adapter}" -out_format 3 -out_good ${sample_id}_filtered
+    if ((\${#a[@]} > 1));
+    then
+        prinseq-lite.pl --fastq ${sample_id}_1.fq  --fastq2 ${sample_id}_2.fq  --custom_params "${adapter}" -out_format 3 -out_good ${sample_id}_filtered
+    else
+        prinseq-lite.pl --fastq ${sample_id}_1.fq --custom_params "${adapter}" -out_format 3 -out_good ${sample_id}_filtered
+    fi
 
-    gzip ${sample_id}_filtered_*.fastq
-
-    #rm *.fq *.fastq
+    gzip ${sample_id}_filtered*
 
     if [ "$clear" = "true" ];
     then
@@ -404,7 +414,6 @@ file ".versions"
             rm \$file_source1 \$file_source2
         fi
     fi
-
     """
 }
 
