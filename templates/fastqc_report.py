@@ -55,6 +55,7 @@ __template__ = "fastqc_report-nf"
 
 import os
 import json
+import glob
 
 from collections import OrderedDict
 
@@ -63,14 +64,12 @@ from flowcraft_utils.flowcraft_base import get_logger, MainWrapper
 logger = get_logger(__file__)
 
 if __file__.endswith(".command.sh"):
-    RESULT_P1 = '$result_p1'.split()
-    RESULT_P2 = '$result_p2'.split()
+    RESULTS = '$results'.split()
     SAMPLE_ID = '$sample_id'
     OPTS = '$opts'.split()
     logger.debug("Running {} with parameters:".format(
         os.path.basename(__file__)))
-    logger.debug("RESULT_P1: {}".format(RESULT_P1))
-    logger.debug("RESULT_P2: {}".format(RESULT_P2))
+    logger.debug("RESULTS: {}".format(RESULTS))
     logger.debug("SAMPLE_ID: {}".format(SAMPLE_ID))
     logger.debug("OPTS: {}".format(OPTS))
 
@@ -128,13 +127,12 @@ def _get_quality_stats(d, start_str, field_start=1, field_end=2):
                 ]))
 
 
-def write_json_report(sample_id, data1, data2):
+def write_json_report(sample_id, data):
     """Writes the report
 
     Parameters
     ----------
-    data1
-    data2
+    data
 
     Returns
     -------
@@ -166,6 +164,9 @@ def write_json_report(sample_id, data1, data2):
 
     for cat, start_str in parser_map.items():
 
+        report_list = []
+        status_list= []
+
         if cat == "per_base_sequence_content":
             fs = 1
             fe = 5
@@ -173,17 +174,27 @@ def write_json_report(sample_id, data1, data2):
             fs = 1
             fe = 2
 
-        report1, status1 = _get_quality_stats(data1, start_str,
-                                              field_start=fs, field_end=fe)
-        report2, status2 = _get_quality_stats(data2, start_str,
-                                              field_start=fs, field_end=fe)
+        read_1 = glob.glob(os.path.join(os.getcwd(), "pair_1_*"))
+        read_2 = glob.glob(os.path.join(os.getcwd(), "pair_2_*"))
+
+        if len(read_1)>0:
+            report1, status1 = _get_quality_stats(read_1, start_str,
+                                                  field_start=fs, field_end=fe)
+            report_list.append(report1)
+            status_list.append(status1)
+
+        if len(read_2)>0:
+            report2, status2 = _get_quality_stats(read_2, start_str,
+                                                  field_start=fs, field_end=fe)
+            report_list.append(report2)
+            status_list.append(status2)
 
         status = None
         for i in ["fail", "warn", "pass"]:
-            if i in [status1, status2]:
+            if i in status_list:
                 status = i
 
-        json_dic["plotData"][0]["data"][cat]["data"] = [report1, report2]
+        json_dic["plotData"][0]["data"][cat]["data"] = report_list
         json_dic["plotData"][0]["data"][cat]["status"] = status
 
     return json_dic
@@ -278,7 +289,7 @@ def trim_range(data_file):
     # will be False
     biased = []
 
-    with open(data_file) as fh:
+    with open(data_file[0]) as fh:
 
         for line in fh:
             # Start assessment of nucleotide bias
@@ -321,7 +332,7 @@ def trim_range(data_file):
     return trim_nt
 
 
-def get_sample_trim(p1_data, p2_data):
+def get_sample_trim(*data):
     """Get the optimal read trim range from data files of paired FastQ reads.
 
     Given the FastQC data report files for paired-end FastQ reads, this
@@ -348,8 +359,8 @@ def get_sample_trim(p1_data, p2_data):
     trim_range
 
     """
-
-    sample_ranges = [trim_range(x) for x in [p1_data, p2_data]]
+    print(data)
+    sample_ranges = [trim_range(x) for x in data]
 
     # Get the optimal trim position for 5' end
     optimal_5trim = max([x[0] for x in sample_ranges])
@@ -518,7 +529,7 @@ def check_summary_health(summary_file, **kwargs):
 
 
 @MainWrapper
-def main(sample_id, result_p1, result_p2, opts):
+def main(sample_id, results, opts):
     """Main executor of the fastqc_report template.
 
     If the "--ignore-tests" option is present in the ``opts`` argument,
@@ -532,16 +543,12 @@ def main(sample_id, result_p1, result_p2, opts):
     ----------
     sample_id : str
         Sample Identification string.
-    result_p1 : list
+    results : list
         Two element list containing the path to the FastQC report files to
         the first FastQ pair.
         The first must be the nucleotide level report and the second the
         categorical report.
-    result_p2: list
-        Two element list containing the path to the FastQC report files to
-        the second FastQ pair.
-        The first must be the nucleotide level report and the second the
-        categorical report.
+        If paired-end, these are duplicated
     opts : list
         List of arbitrary options. See `Expected input`_.
 
@@ -565,11 +572,11 @@ def main(sample_id, result_p1, result_p2, opts):
         if "--ignore-tests" not in opts:
 
             # Get reports for each category in json format
-            json_dic = write_json_report(sample_id, result_p1[0],
-                                         result_p2[0])
+            json_dic = write_json_report(sample_id, results)
 
             logger.info("Performing FastQ health check")
-            for p, fastqc_summary in enumerate([result_p1[1], result_p2[1]]):
+            for p, fastqc_summary in enumerate(glob.glob(os.path.join(os.getcwd(), "pair_1_*")),
+                                               glob.glob(os.path.join(os.getcwd(), "pair_1_*"))):
 
                 logger.debug("Checking files: {}".format(fastqc_summary))
                 # Get the boolean health variable and a list of failed
@@ -625,7 +632,7 @@ def main(sample_id, result_p1, result_p2, opts):
         logger.info("Assessing optimal trim range for sample")
         # Get optimal trimming range for sample, based on the per base sequence
         # content
-        optimal_trim = get_sample_trim(result_p1[0], result_p2[0])
+        optimal_trim = get_sample_trim(glob.glob(os.path.join(os.getcwd(), "pair_*_summary")))
         logger.info("Optimal trim range set to: {}".format(optimal_trim))
         trim_fh.write("{}".format(" ".join([str(x) for x in optimal_trim])))
 
@@ -641,4 +648,4 @@ def main(sample_id, result_p1, result_p2, opts):
 
 if __name__ == '__main__':
 
-    main(SAMPLE_ID, RESULT_P1, RESULT_P2, OPTS)
+    main(SAMPLE_ID, RESULTS, OPTS)

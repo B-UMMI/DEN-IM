@@ -45,7 +45,7 @@ CollectInitialMetadata.print_metadata(workflow)
 // Placeholder for main input channels
 if (params.fastq instanceof Boolean){exit 1, "'fastq' must be a path pattern. Provide value:'$params.fastq'"}
 if (!params.fastq){ exit 1, "'fastq' parameter missing"}
-IN_fastq_raw = Channel.fromFilePairs(params.fastq).ifEmpty { exit 1, "No fastq files provided with pattern:'${params.fastq}'" }
+IN_fastq_raw = Channel.fromFilePairs(params.fastq, size: -1).ifEmpty { exit 1, "No fastq files provided with pattern:'${params.fastq}'" }
 
 // Placeholder for secondary input channels
 
@@ -211,7 +211,7 @@ process fastqc_1_2 {
     val ad from Channel.value('None')
 
     output:
-    set sample_id, file(fastq_pair), file('pair_1*'), file('pair_2*') into MAIN_fastqc_out_1_2
+    set sample_id, file(fastq_pair), file('pair_*') into MAIN_fastqc_out_1_2
     file "*html"
     set sample_id, val("1_2_fastqc"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_fastqc_1_2
 set sample_id, val("fastqc_1_2"), val("1_2"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_fastqc_1_2
@@ -228,14 +228,13 @@ the optimal_trim information for Trimmomatic
 process fastqc_report_1_2 {
 
     // Send POST request to platform
-    
+
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_2 $params.platformHTTP"
         afterScript "final_POST.sh $params.projectId $params.pipelineId 1_2 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_2 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId fastqc_trimmomatic_1_2 \"$params.platformSpecies\" false"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-    
 
     tag { sample_id }
     // This process can only use a single CPU
@@ -243,7 +242,7 @@ process fastqc_report_1_2 {
     publishDir 'reports/fastqc_1_2/run_1/', pattern: '*summary.txt', mode: 'copy'
 
     input:
-    set sample_id, file(fastq_pair), file(result_p1), file(result_p2) from MAIN_fastqc_out_1_2
+    set sample_id, file(fastq_pair), file(results) from MAIN_fastqc_out_1_2
     val opts from Channel.value("--ignore-tests")
 
     output:
@@ -313,14 +312,14 @@ information on the trim_range and phred score.
 process trimmomatic_1_2 {
 
     // Send POST request to platform
-    
+
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_2 $params.platformHTTP"
         afterScript "final_POST.sh $params.projectId $params.pipelineId 1_2 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_2 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId fastqc_trimmomatic_1_2 \"$params.platformSpecies\" false"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-    
+
 
     tag { sample_id }
     publishDir "results/trimmomatic_1_2", pattern: "*.gz"
@@ -332,7 +331,7 @@ process trimmomatic_1_2 {
     val clear from checkpointClear_1_2
 
     output:
-    set sample_id, "${sample_id}_*trim.fastq.gz" into fastqc_trimmomatic_out_1_1
+    set sample_id, "*trim.fastq.gz" into fastqc_trimmomatic_out_1_1
     file 'trimmomatic_report.csv'
     set sample_id, val("1_2_trimmomatic"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_trimmomatic_1_2
 set sample_id, val("trimmomatic_1_2"), val("1_2"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_trimmomatic_1_2
@@ -906,14 +905,14 @@ assembly contigs based on coverage and length thresholds.
 process process_assembly_mapping_1_8 {
 
     // Send POST request to platform
-    
+
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_8 $params.platformHTTP"
         afterScript "final_POST.sh $params.projectId $params.pipelineId 1_8 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_8 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId assembly_mapping_1_8 \"$params.platformSpecies\" false"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-    
+
 
     tag { sample_id }
     // This process can only use a single CPU
@@ -993,14 +992,14 @@ file ".versions"
 
 process pilon_report_1_9 {
 
-    
+
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh"
         afterScript "report_POST.sh $params.projectId $params.pipelineId 1_9 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId pilon_1_9 \"$params.platformSpecies\" false"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh"
         }
-    
+
 
     tag { sample_id }
 
@@ -1273,7 +1272,7 @@ process raxml_1_13 {
     tag { 'raxml' }
 
     publishDir "results/phylogeny/raxml_1_13/"
-    
+
     errorStrategy { task.exitStatus == 120 ? 'ignore' : 'retry' }
 
     input:
@@ -1297,7 +1296,7 @@ file ".versions"
         echo ERROR: Too few species! RAxML is very unhappy!
         exit 120
     fi
-    
+
     raxmlHPC -s ${alignment} -p 12345 -m ${substitution_model} -T $task.cpus -n $workflow.scriptName -f a -x ${seednumber} -N ${bootstrapnumber}
 
     # Add information to dotfiles
