@@ -328,7 +328,7 @@ def main(sample_id, fastq, trim_range, trim_opts, phred, adapters_file,
         "$task.cpus"
     ]
 
-    if len(fastq)>1:
+    if len(fastq) > 1:
         cli[4] = "PE"
     else:
         cli[4] = "SE"

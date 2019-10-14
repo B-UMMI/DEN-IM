@@ -49,8 +49,8 @@ Code documentation
 
 """
 
-__version__ = "1.0.2"
-__build__ = "12052018"
+__version__ = "1.0.3"
+__build__ = "14102019"
 __template__ = "fastqc_report-nf"
 
 import os
@@ -632,7 +632,7 @@ def main(sample_id, results, opts):
         logger.info("Assessing optimal trim range for sample")
         # Get optimal trimming range for sample, based on the per base sequence
         # content
-        optimal_trim = get_sample_trim(glob.glob(os.path.join(os.getcwd(), "pair_*_summary")))
+        optimal_trim = get_sample_trim(glob.glob(os.path.join(os.getcwd(), "pair_*_data")))
         logger.info("Optimal trim range set to: {}".format(optimal_trim))
         trim_fh.write("{}".format(" ".join([str(x) for x in optimal_trim])))
 
