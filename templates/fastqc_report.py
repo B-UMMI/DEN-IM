@@ -165,7 +165,7 @@ def write_json_report(sample_id, data):
     for cat, start_str in parser_map.items():
 
         report_list = []
-        status_list= []
+        status_list = []
 
         if cat == "per_base_sequence_content":
             fs = 1
