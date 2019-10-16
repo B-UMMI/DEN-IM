@@ -18,10 +18,7 @@ class Help {
         println "========================================================================================"
         println ""
         if (info.containsKey("fastq")){
-        int nsamples = info.fastq / 2
         println " Input FastQ                 : $info.fastq"
-        println " Input samples               : $nsamples"
-        }
         if (info.containsKey("fasta")){
         println " Input Fasta                 : $info.fasta"
         }

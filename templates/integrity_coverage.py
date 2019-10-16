@@ -93,7 +93,7 @@ logger = get_logger(__file__)
 # Set constants when running from Nextflow
 if __file__.endswith(".command.sh"):
     # CONSTANTS
-    FASTQ = '$fastq_pair'.split()  # se and pe reads received.
+    FASTQ_PAIR = '$fastq_pair'.split()
     SAMPLE_ID = '$sample_id'
     GSIZE = float('$gsize')
     MINIMUM_COVERAGE = float('$cov')
@@ -102,7 +102,7 @@ if __file__.endswith(".command.sh"):
     logger.debug("Running {} with parameters:".format(
         os.path.basename(__file__)))
     logger.debug("SAMPLE_ID: {}".format(SAMPLE_ID))
-    logger.debug("FASTQ_PAIR: {}".format(FASTQ))
+    logger.debug("FASTQ_PAIR: {}".format(FASTQ_PAIR))
     logger.debug("GSIZE: {}".format(GSIZE))
     logger.debug("MINIMUM_COVERAGE: {}".format(MINIMUM_COVERAGE))
     logger.debug("OPTS: {}".format(OPTS))
@@ -238,15 +238,15 @@ def get_encodings_in_range(rmin, rmax):
 
 
 @MainWrapper
-def main(sample_id, fastq, gsize, minimum_coverage, opts):
+def main(sample_id, fastq_pair, gsize, minimum_coverage, opts):
     """ Main executor of the integrity_coverage template.
 
     Parameters
     ----------
     sample_id : str
         Sample Identification string.
-    fastq : list
-        One or two element list containing the single or paired FastQ files.
+    fastq_pair : list
+        Two element list containing the paired FastQ files.
     gsize : float or int
         Estimate of genome size in Mb.
     minimum_coverage : float or int
@@ -278,23 +278,23 @@ def main(sample_id, fastq, gsize, minimum_coverage, opts):
 
     # Get compression of each FastQ pair file
     file_objects = []
-    for fastq_file in fastq:
+    for fastq in fastq_pair:
 
-        logger.info("Processing file {}".format(fastq_file))
+        logger.info("Processing file {}".format(fastq))
 
-        logger.info("[{}] Guessing file compression".format(fastq_file))
-        ftype = guess_file_compression(fastq_file)
+        logger.info("[{}] Guessing file compression".format(fastq))
+        ftype = guess_file_compression(fastq)
 
         # This can guess the compression of gz, bz2 and zip. If it cannot
         # find the compression type, it tries to open a regular file
         if ftype:
             logger.info("[{}] Found file compression: {}".format(
-                fastq_file, ftype))
-            file_objects.append(COPEN[ftype](fastq_file, "rt"))
+                fastq, ftype))
+            file_objects.append(COPEN[ftype](fastq, "rt"))
         else:
             logger.info("[{}] File compression not found. Assuming an "
-                        "uncompressed file".format(fastq_file))
-            file_objects.append(open(fastq_file))
+                        "uncompressed file".format(fastq))
+            file_objects.append(open(fastq))
 
     logger.info("Starting FastQ file parsing")
 
@@ -440,7 +440,7 @@ def main(sample_id, fastq, gsize, minimum_coverage, opts):
                 status_fh.write("pass")
             # Estimated coverage does not pass minimum threshold
             else:
-                fail_msg = "Sample with low coverage ({}), below the {}x " \
+                fail_msg = "Sample with low coverage ({}), below the {} " \
                            "threshold".format(exp_coverage, minimum_coverage)
                 logger.error(fail_msg)
                 fail_fh.write(fail_msg)
@@ -471,4 +471,4 @@ def main(sample_id, fastq, gsize, minimum_coverage, opts):
 
 if __name__ == "__main__":
 
-    main(SAMPLE_ID, FASTQ, GSIZE, MINIMUM_COVERAGE, OPTS)
+    main(SAMPLE_ID, FASTQ_PAIR, GSIZE, MINIMUM_COVERAGE, OPTS)

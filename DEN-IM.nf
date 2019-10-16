@@ -403,6 +403,10 @@ file ".versions"
         prinseq-lite.pl --fastq ${sample_id}.fq --custom_params "${adapter}" -out_format 3 -out_good ${sample_id}_filtered
     fi
 
+    if ls *_singletons* 1> /dev/null 2>&1; then
+        rm *_singletons*
+    fi
+
     gzip ${sample_id}_filtered*
 
     if [ "$clear" = "true" ];
@@ -914,7 +918,7 @@ process assembly_mapping_1_8 {
     set sample_id, file(assembly), file(fastq) from viral_assembly_out_1_6.join(_LAST_fastq_1_8)
 
     output:
-    set sample_id, file(assembly), 'coverages.tsv', 'coverage_per_bp.tsv', 'sorted.bam', 'sorted.bam.bai' into MAIN_am_out_1_8
+    set sample_id, file(assembly), file(fastq), 'coverages.tsv', 'coverage_per_bp.tsv', 'sorted.bam', 'sorted.bam.bai' into MAIN_am_out_1_8
     set sample_id, file("coverage_per_bp.tsv") optional true into SIDE_BpCoverage_1_8
     set sample_id, val("1_8_assembly_mapping"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_assembly_mapping_1_8
 set sample_id, val("assembly_mapping_1_8"), val("1_8"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_assembly_mapping_1_8
@@ -987,12 +991,12 @@ process process_assembly_mapping_1_8 {
     cpus 1
 
     input:
-    set sample_id, file(assembly), file(coverage), file(coverage_bp), file(bam_file), file(bam_index) from MAIN_am_out_1_8
+    set sample_id, file(assembly), file(fastq), file(coverage), file(coverage_bp), file(bam_file), file(bam_index) from MAIN_am_out_1_8
     val opts from IN_assembly_mapping_opts_1_8
     val gsize from IN_genome_size_1_8
 
     output:
-    set sample_id, '*_filt.fasta', 'filtered.bam', 'filtered.bam.bai' into assembly_mapping_out_1_7
+    set sample_id, file(fastq), '*_filt.fasta', 'filtered.bam', 'filtered.bam.bai' into assembly_mapping_out_1_7
     set sample_id, val("1_8_process_am"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_process_am_1_8
 set sample_id, val("process_am_1_8"), val("1_8"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_process_am_1_8
 file ".versions"
@@ -1025,7 +1029,7 @@ process pilon_1_9 {
     publishDir 'results/assembly/pilon_1_9/', mode: 'copy', pattern: "*.fasta"
 
     input:
-    set sample_id, file(assembly), file(bam_file), file(bam_index) from assembly_mapping_out_1_7
+    set sample_id, file(fastq), file(assembly), file(bam_file), file(bam_index) from assembly_mapping_out_1_7
     val clear from checkpointClear_1_9
 
     output:
@@ -1037,9 +1041,17 @@ file ".versions"
     script:
     """
     {
+        a=(${fastq})
         pilon_mem=${String.valueOf(task.memory).substring(0, String.valueOf(task.memory).length() - 1).replaceAll("\\s", "")}
-        java -jar -Xms256m -Xmx\${pilon_mem} /NGStools/pilon-1.22.jar --genome $assembly --frags $bam_file --output ${assembly.name.replaceFirst(~/\.[^\.]+$/, '')}_polished --changes --threads $task.cpus >> .command.log 2>&1
-        echo pass > .status
+
+        if ((\${#a[@]} > 1));
+        then
+            java -jar -Xms256m -Xmx\${pilon_mem} /NGStools/pilon-1.22.jar --genome $assembly --frags $bam_file --output ${assembly.name.replaceFirst(~/\.[^\.]+$/, '')}_polished --changes --threads $task.cpus >> .command.log 2>&1
+            echo pass > .status
+        else
+            java -jar -Xms256m -Xmx\${pilon_mem} /NGStools/pilon-1.22.jar --genome $assembly --unpaired $bam_file --output ${assembly.name.replaceFirst(~/\.[^\.]+$/, '')}_polished --changes --threads $task.cpus >> .command.log 2>&1
+            echo pass > .status
+        fi
 
         if [ "$clear" = "true" ];
         then
