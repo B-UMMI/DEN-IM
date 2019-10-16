@@ -130,7 +130,7 @@ def set_kmers(kmer_opt, max_read_len):
     elif len(kmer_opt.split()) > 1:
 
         kmers = kmer_opt.split()
-        if kmers[0]<15 or kmers[-1]>255 or is_odd(kmers):
+        if kmers[0] < 15 or kmers[-1] > 255 or is_odd(kmers):
             kmers = []
             logger.debug("Kmer out of range or with even numbers"
                          "(will be automatically determined by megahit")
@@ -238,12 +238,18 @@ def main(sample_id, fastq_pair, max_len, kmer, mem, clear):
         ]
 
     # Add FastQ files
-    cli += [
-        "-1",
-        fastq_pair[0],
-        "-2",
-        fastq_pair[1]
-    ]
+    if len(fastq_pair) > 1:
+        cli += [
+            "-1",
+            fastq_pair[0],
+            "-2",
+            fastq_pair[1]
+        ]
+    else:
+        cli += [
+            "-r",
+            fastq_pair[0]
+        ]
 
     logger.debug("Running megahit subprocess with command: {}".format(cli))
 

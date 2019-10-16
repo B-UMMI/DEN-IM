@@ -214,12 +214,18 @@ def main(sample_id, fastq_pair, max_len, kmer, opts, clear, disable_rr):
         cli += ["-k {}".format(",".join([str(x) for x in kmers]))]
 
     # Add FastQ files
-    cli += [
-        "-1",
-        fastq_pair[0],
-        "-2",
-        fastq_pair[1]
-    ]
+    if len(fastq_pair) > 1:
+        cli += [
+            "-1",
+            fastq_pair[0],
+            "-2",
+            fastq_pair[1]
+        ]
+    else:
+        cli += [
+            "-s",
+            fastq_pair[0]
+        ]
 
     # Disable RR?
     if disable_rr == 'true':

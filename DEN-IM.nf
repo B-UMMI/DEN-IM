@@ -616,7 +616,7 @@ process renamePE_1_4 {
 
     if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP"
-        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId retrieve_mapped_1_5 \"$params.platformSpecies\" true"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId renamePE_1_5 \"$params.platformSpecies\" true"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
     }
@@ -626,8 +626,8 @@ process renamePE_1_4 {
 
     output:
     set sample_id , file("*.headersRenamed*") into retrieve_mapped_out_1_4
-    set sample_id, val("1_5_retrieve_mapped"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_renamePE_1_5
-    set sample_id, val("retrieve_mapped_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_renamePE_1_5
+    set sample_id, val("1_5_renamePE"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_renamePE_1_5
+    set sample_id, val("renamePE_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_renamePE_1_5
     file ".versions"
 
     script:
@@ -712,6 +712,7 @@ SIDE_max_len_1_6.set{ SIDE_max_len_1_7 }
 //MAIN INPUT - FASTQ FILES
 spades_in = Channel.create()
 megahit_in = Channel.create()
+
 check_coverage_out_1_5.into{ spades_in; megahit_in }
 
 //EXPECTED GENOME SIZE
@@ -853,7 +854,6 @@ file ".versions"
 
 }
 
-
 good_assembly.mix(megahit_assembly).into{ to_report_1_7 ; viral_assembly_out_1_6 }
 orf_size = Channel.value(params.minimumContigSize)
 
@@ -923,11 +923,22 @@ file ".versions"
     script:
     """
     {
+        a=(${fastq})
+
         echo [DEBUG] BUILDING BOWTIE INDEX FOR ASSEMBLY: $assembly >> .command.log 2>&1
         bowtie2-build --threads ${task.cpus} $assembly genome_index >> .command.log 2>&1
-        echo [DEBUG] MAPPING READS FROM $fastq >> .command.log 2>&1
-        bowtie2 -q --very-sensitive-local --threads ${task.cpus} -x genome_index -1 ${fastq[0]} -2 ${fastq[1]} -S mapping.sam >> .command.log 2>&1
-        echo [DEBUG] CONVERTING AND SORTING SAM TO BAM >> .command.log 2>&1
+
+        if ((\${#a[@]} > 1));
+        then
+            echo [DEBUG] MAPPING READS FROM $fastq >> .command.log 2>&1
+            bowtie2 -q --very-sensitive-local --threads ${task.cpus} -x genome_index -1 ${fastq[0]} -2 ${fastq[1]} -S mapping.sam >> .command.log 2>&1
+
+        else
+            echo [DEBUG] MAPPING READS FROM $fastq >> .command.log 2>&1
+            bowtie2 -q --very-sensitive-local --threads ${task.cpus} -x genome_index -U ${fastq[0]} -S mapping.sam >> .command.log 2>&1
+        fi
+
+         echo [DEBUG] CONVERTING AND SORTING SAM TO BAM >> .command.log 2>&1
         samtools sort -o sorted.bam -O bam -@ ${task.cpus} mapping.sam && rm *.sam  >> .command.log 2>&1
         echo [DEBUG] CREATING BAM INDEX >> .command.log 2>&1
         samtools index sorted.bam >> .command.log 2>&1
