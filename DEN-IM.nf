@@ -5,9 +5,9 @@ import CollectInitialMetadata
 
 // Pipeline version
 if (workflow.commitId){
-    version = "2.2 $workflow.revision"
+    version = "3.0 $workflow.revision"
 } else {
-    version = "2.2 (local version)"
+    version = "3.0 (local version)"
 }
 
 params.help = false
