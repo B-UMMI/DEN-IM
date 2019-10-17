@@ -242,8 +242,13 @@ def main(sample_id, assembly, fastq_pair, reference, result):
            "-j", "${task.cpus}",
            "--debug",
            '--bowtieAlgo="--very-fast"',
-           "--doNotRemoveConsensus",
-           "-f", fastq_pair[0], fastq_pair[1]]
+           "--doNotRemoveConsensus"
+           ]
+
+    if len(fastq_pair) > 1:
+        cli += ["-f", fastq_pair[0], fastq_pair[1]]
+    else:
+        cli += ["-f", fastq_pair[0]]
 
     logger.info("Runnig seq_typing subprocess with command: {}".format(cli))
 
@@ -252,7 +257,8 @@ def main(sample_id, assembly, fastq_pair, reference, result):
 
     try:
         stderr = stderr.decode("utf8")
-        stdout = stdout.decode("utf8")
+        stdout = stdout.decode(""
+                               "utf8")
     except (UnicodeDecodeError, AttributeError):
         stderr = str(stderr)
         stdout = str(stdout)

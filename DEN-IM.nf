@@ -5,9 +5,9 @@ import CollectInitialMetadata
 
 // Pipeline version
 if (workflow.commitId){
-    version = "2.2 $workflow.revision"
+    version = "3.0 $workflow.revision"
 } else {
-    version = "2.2 (local version)"
+    version = "3.0 (local version)"
 }
 
 params.help = false
@@ -45,7 +45,7 @@ CollectInitialMetadata.print_metadata(workflow)
 // Placeholder for main input channels
 if (params.fastq instanceof Boolean){exit 1, "'fastq' must be a path pattern. Provide value:'$params.fastq'"}
 if (!params.fastq){ exit 1, "'fastq' parameter missing"}
-IN_fastq_raw = Channel.fromFilePairs(params.fastq).ifEmpty { exit 1, "No fastq files provided with pattern:'${params.fastq}'" }
+IN_fastq_raw = Channel.fromFilePairs(params.fastq, size: -1).ifEmpty { exit 1, "No fastq files provided with pattern:'${params.fastq}'" }
 
 // Placeholder for secondary input channels
 
@@ -211,7 +211,7 @@ process fastqc_1_2 {
     val ad from Channel.value('None')
 
     output:
-    set sample_id, file(fastq_pair), file('pair_1*'), file('pair_2*') into MAIN_fastqc_out_1_2
+    set sample_id, file(fastq_pair), file('pair_*') into MAIN_fastqc_out_1_2
     file "*html"
     set sample_id, val("1_2_fastqc"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_fastqc_1_2
 set sample_id, val("fastqc_1_2"), val("1_2"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_fastqc_1_2
@@ -228,14 +228,13 @@ the optimal_trim information for Trimmomatic
 process fastqc_report_1_2 {
 
     // Send POST request to platform
-    
+
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_2 $params.platformHTTP"
         afterScript "final_POST.sh $params.projectId $params.pipelineId 1_2 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_2 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId fastqc_trimmomatic_1_2 \"$params.platformSpecies\" false"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-    
 
     tag { sample_id }
     // This process can only use a single CPU
@@ -243,7 +242,7 @@ process fastqc_report_1_2 {
     publishDir 'reports/fastqc_1_2/run_1/', pattern: '*summary.txt', mode: 'copy'
 
     input:
-    set sample_id, file(fastq_pair), file(result_p1), file(result_p2) from MAIN_fastqc_out_1_2
+    set sample_id, file(fastq_pair), file(results) from MAIN_fastqc_out_1_2
     val opts from Channel.value("--ignore-tests")
 
     output:
@@ -313,14 +312,14 @@ information on the trim_range and phred score.
 process trimmomatic_1_2 {
 
     // Send POST request to platform
-    
+
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_2 $params.platformHTTP"
         afterScript "final_POST.sh $params.projectId $params.pipelineId 1_2 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_2 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId fastqc_trimmomatic_1_2 \"$params.platformSpecies\" false"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-    
+
 
     tag { sample_id }
     publishDir "results/trimmomatic_1_2", pattern: "*.gz"
@@ -332,7 +331,7 @@ process trimmomatic_1_2 {
     val clear from checkpointClear_1_2
 
     output:
-    set sample_id, "${sample_id}_*trim.fastq.gz" into fastqc_trimmomatic_out_1_1
+    set sample_id, "*trim.fastq.gz" into fastqc_trimmomatic_out_1_1
     file 'trimmomatic_report.csv'
     set sample_id, val("1_2_trimmomatic"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_trimmomatic_1_2
 set sample_id, val("trimmomatic_1_2"), val("1_2"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_trimmomatic_1_2
@@ -371,15 +370,22 @@ process filter_poly_1_3 {
     val clear from checkpointClear_1_3
 
     output:
-    set sample_id , file("${sample_id}_filtered_{1,2}.fastq.gz") into filter_poly_out_1_2
+    set sample_id , file("${sample_id}_filtered*") into filter_poly_out_1_2
     set sample_id, val("1_3_filter_poly"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_filter_poly_1_3
 set sample_id, val("filter_poly_1_3"), val("1_3"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_filter_poly_1_3
 file ".versions"
 
     script:
     """
-    gunzip -c ${fastq_pair[0]} >  ${sample_id}_1.fq
-    gunzip -c ${fastq_pair[1]} >  ${sample_id}_2.fq
+    a=(${fastq_pair})
+
+    if ((\${#a[@]} > 1));
+    then
+        gunzip -c ${fastq_pair[0]} >  ${sample_id}_1.fq
+        gunzip -c ${fastq_pair[1]} >  ${sample_id}_2.fq
+    else
+        gunzip -c ${fastq_pair[0]} >  ${sample_id}.fq
+    fi
 
     for seqfile in *.fq;
     do if [ ! -s \$seqfile  ]
@@ -390,11 +396,18 @@ file ".versions"
     fi
     done
 
-    prinseq-lite.pl --fastq ${sample_id}_1.fq  --fastq2 ${sample_id}_2.fq  --custom_params "${adapter}" -out_format 3 -out_good ${sample_id}_filtered
+    if ((\${#a[@]} > 1));
+    then
+        prinseq-lite.pl --fastq ${sample_id}_1.fq  --fastq2 ${sample_id}_2.fq  --custom_params "${adapter}" -out_format 3 -out_good ${sample_id}_filtered
+    else
+        prinseq-lite.pl --fastq ${sample_id}.fq --custom_params "${adapter}" -out_format 3 -out_good ${sample_id}_filtered
+    fi
 
-    gzip ${sample_id}_filtered_*.fastq
+    if ls *_singletons* 1> /dev/null 2>&1; then
+        rm *_singletons*
+    fi
 
-    #rm *.fq *.fastq
+    gzip ${sample_id}_filtered*
 
     if [ "$clear" = "true" ];
     then
@@ -405,7 +418,6 @@ file ".versions"
             rm \$file_source1 \$file_source2
         fi
     fi
-
     """
 }
 
@@ -484,7 +496,7 @@ process bowtie_1_4 {
     each file(index_files) from bowtieIndex_1_4
 
     output:
-    set sample_id , file("*.bam") into bowtie_out_1_3
+    set sample_id , file("pair_info.txt"), file("*.bam") into bowtie_out_1_3
     set sample_id, file("*_bowtie2.log") into into_json_1_4
     set sample_id, val("1_4_bowtie"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_bowtie_1_4
 set sample_id, val("bowtie_1_4"), val("1_4"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_bowtie_1_4
@@ -493,19 +505,39 @@ file ".versions"
     script:
     """
     {
-        bowtie2 -x $index -1 ${fastq_pair[0]} -2 ${fastq_pair[1]} -p $task.cpus 1> ${sample_id}.bam 2> ${sample_id}_bowtie2.log
+        a=(${fastq_pair})
 
-        if [ "$clear" = "true" ];
+        if ((\${#a[@]} > 1));
         then
-            work_regex=".*/work/.{2}/.{30}/.*"
-            file_source1=\$(readlink -f \$(pwd)/${fastq_pair[0]})
-            file_source2=\$(readlink -f \$(pwd)/${fastq_pair[1]})
-            if [[ "\$file_source1" =~ \$work_regex ]]; then
-                rm \$file_source1 \$file_source2
-            fi
-        fi
+            echo "True" > pair_info.txt
+            bowtie2 -x $index -1 ${fastq_pair[0]} -2 ${fastq_pair[1]} -p $task.cpus 1> ${sample_id}.bam 2> ${sample_id}_bowtie2.log
 
-        echo pass > .status
+            if [ "$clear" = "true" ];
+            then
+                work_regex=".*/work/.{2}/.{30}/.*"
+                file_source1=\$(readlink -f \$(pwd)/${fastq_pair[0]})
+                file_source2=\$(readlink -f \$(pwd)/${fastq_pair[1]})
+                if [[ "\$file_source1" =~ \$work_regex ]]; then
+                    rm \$file_source1 \$file_source2
+                fi
+            fi
+
+            echo pass > .status
+        else
+            echo "False" > pair_info.txt
+            bowtie2 -x $index -U ${fastq_pair[0]} -p $task.cpus 1> ${sample_id}.bam 2> ${sample_id}_bowtie2.log
+
+            if [ "$clear" = "true" ];
+            then
+                work_regex=".*/work/.{2}/.{30}/.*"
+                file_source1=\$(readlink -f \$(pwd)/${fastq_pair[0]})
+                if [[ "\$file_source1" =~ \$work_regex ]]; then
+                    rm \$file_source1
+                fi
+            fi
+
+            echo pass > .status
+        fi
     } || {
         echo fail > .status
     }
@@ -541,7 +573,7 @@ file ".versions"
 process retrieve_mapped_1_5 {
 
     // Send POST request to platform
-        if ( params.platformHTTP != null ) {
+    if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP"
         afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId retrieve_mapped_1_5 \"$params.platformSpecies\" true"
     } else {
@@ -552,32 +584,60 @@ process retrieve_mapped_1_5 {
     publishDir 'results/mapping/retrieve_mapped_1_5/'
 
     input:
-    set sample_id, file(bam) from bowtie_out_1_3
+    set sample_id, file(is_pair), file(bam) from bowtie_out_1_3
 
     output:
-    set sample_id , file("*.headersRenamed_*.fq.gz") into retrieve_mapped_out_1_4
+    set sample_id , file("*_mapped*") into OUT_retrieve_mapped_1_4
     set sample_id, val("1_5_retrieve_mapped"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_retrieve_mapped_1_5
 set sample_id, val("retrieve_mapped_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_retrieve_mapped_1_5
-file ".versions"
+    file ".versions"
 
     script:
     """
-    samtools view -buh -F 12 -o ${sample_id}_samtools.bam -@ $task.cpus ${bam}
+    if [[ \$(cat ${is_pair}) == "True" ]];
+    then
+        samtools view -buh -F 12 -o ${sample_id}_samtools.bam -@ $task.cpus ${bam}
+        rm ${bam}
 
-    rm ${bam}
+        samtools fastq -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq ${sample_id}_samtools.bam
+        rm ${sample_id}_samtools.bam
 
-    samtools fastq -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq ${sample_id}_samtools.bam
+    else
+        samtools view -buh -F 4 -o ${sample_id}_samtools.bam -@ $task.cpus ${bam}
+        rm ${bam}
 
-    rm ${sample_id}_samtools.bam
+        samtools fastq ${sample_id}_samtools.bam > ${sample_id}_mapped.fq
+        rm ${sample_id}_samtools.bam
 
-    renamePE_samtoolsFASTQ.py -1 ${sample_id}_mapped_1.fq -2 ${sample_id}_mapped_2.fq
-
-    gzip *.headersRenamed_*.fq
-
-    rm *.fq
+    fi
     """
 }
 
+process renamePE_1_4 {
+
+    tag { sample_id }
+    publishDir 'results/mapping/retrieve_mapped_{{ pid }}/'
+
+    if ( params.platformHTTP != null ) {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP"
+        afterScript "final_POST.sh $params.projectId $params.pipelineId 1_5 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_5 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId renamePE_1_5 \"$params.platformSpecies\" true"
+    } else {
+        beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
+    }
+
+    input:
+    set sample_id, file(fastq_pair) from OUT_retrieve_mapped_1_4
+
+    output:
+    set sample_id , file("*.headersRenamed*") into retrieve_mapped_out_1_4
+    set sample_id, val("1_5_renamePE"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_renamePE_1_5
+    set sample_id, val("renamePE_1_5"), val("1_5"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_renamePE_1_5
+    file ".versions"
+
+    script:
+    template "renamePE_samtoolsFASTQ.py"
+
+}
 
 IN_genome_size_1_6 = Channel.value(params.genomeSize)
     .map{it -> it.toString().isNumber() ? it : exit (1, "The genomeSize parameter must be a number or a float. Provided value: '${params.genomeSize}'")}
@@ -656,6 +716,7 @@ SIDE_max_len_1_6.set{ SIDE_max_len_1_7 }
 //MAIN INPUT - FASTQ FILES
 spades_in = Channel.create()
 megahit_in = Channel.create()
+
 check_coverage_out_1_5.into{ spades_in; megahit_in }
 
 //EXPECTED GENOME SIZE
@@ -797,7 +858,6 @@ file ".versions"
 
 }
 
-
 good_assembly.mix(megahit_assembly).into{ to_report_1_7 ; viral_assembly_out_1_6 }
 orf_size = Channel.value(params.minimumContigSize)
 
@@ -858,7 +918,7 @@ process assembly_mapping_1_8 {
     set sample_id, file(assembly), file(fastq) from viral_assembly_out_1_6.join(_LAST_fastq_1_8)
 
     output:
-    set sample_id, file(assembly), 'coverages.tsv', 'coverage_per_bp.tsv', 'sorted.bam', 'sorted.bam.bai' into MAIN_am_out_1_8
+    set sample_id, file(assembly), file(fastq), 'coverages.tsv', 'coverage_per_bp.tsv', 'sorted.bam', 'sorted.bam.bai' into MAIN_am_out_1_8
     set sample_id, file("coverage_per_bp.tsv") optional true into SIDE_BpCoverage_1_8
     set sample_id, val("1_8_assembly_mapping"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_assembly_mapping_1_8
 set sample_id, val("assembly_mapping_1_8"), val("1_8"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_assembly_mapping_1_8
@@ -867,11 +927,22 @@ file ".versions"
     script:
     """
     {
+        a=(${fastq})
+
         echo [DEBUG] BUILDING BOWTIE INDEX FOR ASSEMBLY: $assembly >> .command.log 2>&1
         bowtie2-build --threads ${task.cpus} $assembly genome_index >> .command.log 2>&1
-        echo [DEBUG] MAPPING READS FROM $fastq >> .command.log 2>&1
-        bowtie2 -q --very-sensitive-local --threads ${task.cpus} -x genome_index -1 ${fastq[0]} -2 ${fastq[1]} -S mapping.sam >> .command.log 2>&1
-        echo [DEBUG] CONVERTING AND SORTING SAM TO BAM >> .command.log 2>&1
+
+        if ((\${#a[@]} > 1));
+        then
+            echo [DEBUG] MAPPING READS FROM $fastq >> .command.log 2>&1
+            bowtie2 -q --very-sensitive-local --threads ${task.cpus} -x genome_index -1 ${fastq[0]} -2 ${fastq[1]} -S mapping.sam >> .command.log 2>&1
+
+        else
+            echo [DEBUG] MAPPING READS FROM $fastq >> .command.log 2>&1
+            bowtie2 -q --very-sensitive-local --threads ${task.cpus} -x genome_index -U ${fastq[0]} -S mapping.sam >> .command.log 2>&1
+        fi
+
+         echo [DEBUG] CONVERTING AND SORTING SAM TO BAM >> .command.log 2>&1
         samtools sort -o sorted.bam -O bam -@ ${task.cpus} mapping.sam && rm *.sam  >> .command.log 2>&1
         echo [DEBUG] CREATING BAM INDEX >> .command.log 2>&1
         samtools index sorted.bam >> .command.log 2>&1
@@ -906,26 +977,26 @@ assembly contigs based on coverage and length thresholds.
 process process_assembly_mapping_1_8 {
 
     // Send POST request to platform
-    
+
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh; startup_POST.sh $params.projectId $params.pipelineId 1_8 $params.platformHTTP"
         afterScript "final_POST.sh $params.projectId $params.pipelineId 1_8 $params.platformHTTP; report_POST.sh $params.projectId $params.pipelineId 1_8 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId assembly_mapping_1_8 \"$params.platformSpecies\" false"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; set_dotfiles.sh"
         }
-    
+
 
     tag { sample_id }
     // This process can only use a single CPU
     cpus 1
 
     input:
-    set sample_id, file(assembly), file(coverage), file(coverage_bp), file(bam_file), file(bam_index) from MAIN_am_out_1_8
+    set sample_id, file(assembly), file(fastq), file(coverage), file(coverage_bp), file(bam_file), file(bam_index) from MAIN_am_out_1_8
     val opts from IN_assembly_mapping_opts_1_8
     val gsize from IN_genome_size_1_8
 
     output:
-    set sample_id, '*_filt.fasta', 'filtered.bam', 'filtered.bam.bai' into assembly_mapping_out_1_7
+    set sample_id, file(fastq), '*_filt.fasta', 'filtered.bam', 'filtered.bam.bai' into assembly_mapping_out_1_7
     set sample_id, val("1_8_process_am"), file(".status"), file(".warning"), file(".fail"), file(".command.log") into STATUS_process_am_1_8
 set sample_id, val("process_am_1_8"), val("1_8"), file(".report.json"), file(".versions"), file(".command.trace") into REPORT_process_am_1_8
 file ".versions"
@@ -958,7 +1029,7 @@ process pilon_1_9 {
     publishDir 'results/assembly/pilon_1_9/', mode: 'copy', pattern: "*.fasta"
 
     input:
-    set sample_id, file(assembly), file(bam_file), file(bam_index) from assembly_mapping_out_1_7
+    set sample_id, file(fastq), file(assembly), file(bam_file), file(bam_index) from assembly_mapping_out_1_7
     val clear from checkpointClear_1_9
 
     output:
@@ -970,9 +1041,17 @@ file ".versions"
     script:
     """
     {
+        a=(${fastq})
         pilon_mem=${String.valueOf(task.memory).substring(0, String.valueOf(task.memory).length() - 1).replaceAll("\\s", "")}
-        java -jar -Xms256m -Xmx\${pilon_mem} /NGStools/pilon-1.22.jar --genome $assembly --frags $bam_file --output ${assembly.name.replaceFirst(~/\.[^\.]+$/, '')}_polished --changes --threads $task.cpus >> .command.log 2>&1
-        echo pass > .status
+
+        if ((\${#a[@]} > 1));
+        then
+            java -jar -Xms256m -Xmx\${pilon_mem} /NGStools/pilon-1.22.jar --genome $assembly --frags $bam_file --output ${assembly.name.replaceFirst(~/\.[^\.]+$/, '')}_polished --changes --threads $task.cpus >> .command.log 2>&1
+            echo pass > .status
+        else
+            java -jar -Xms256m -Xmx\${pilon_mem} /NGStools/pilon-1.22.jar --genome $assembly --unpaired $bam_file --output ${assembly.name.replaceFirst(~/\.[^\.]+$/, '')}_polished --changes --threads $task.cpus >> .command.log 2>&1
+            echo pass > .status
+        fi
 
         if [ "$clear" = "true" ];
         then
@@ -993,14 +1072,14 @@ file ".versions"
 
 process pilon_report_1_9 {
 
-    
+
         if ( params.platformHTTP != null ) {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh"
         afterScript "report_POST.sh $params.projectId $params.pipelineId 1_9 $params.sampleName $params.reportHTTP $params.currentUserName $params.currentUserId pilon_1_9 \"$params.platformSpecies\" false"
     } else {
         beforeScript "PATH=${workflow.projectDir}/bin:\$PATH; export PATH; set_dotfiles.sh"
         }
-    
+
 
     tag { sample_id }
 
@@ -1273,7 +1352,7 @@ process raxml_1_13 {
     tag { 'raxml' }
 
     publishDir "results/phylogeny/raxml_1_13/"
-    
+
     errorStrategy { task.exitStatus == 120 ? 'ignore' : 'retry' }
 
     input:
@@ -1297,7 +1376,7 @@ file ".versions"
         echo ERROR: Too few species! RAxML is very unhappy!
         exit 120
     fi
-    
+
     raxmlHPC -s ${alignment} -p 12345 -m ${substitution_model} -T $task.cpus -n $workflow.scriptName -f a -x ${seednumber} -N ${bootstrapnumber}
 
     # Add information to dotfiles
@@ -1344,7 +1423,7 @@ process status {
     publishDir "pipeline_status/$task_name"
 
     input:
-    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_bowtie_1_4,STATUS_report_bowtie_1_4,STATUS_retrieve_mapped_1_5,STATUS_check_coverage_1_6,STATUS_va_spades_1_7,STATUS_va_megahit_1_7,STATUS_report_viral_assembly_1_7,STATUS_assembly_mapping_1_8,STATUS_process_am_1_8,STATUS_pilon_1_9,STATUS_pilon_report_1_9,STATUS_split_assembly_1_10,STATUS_dengue_typing_assembly_1_11,STATUS_dengue_typing_reads_1_11,STATUS_mafft_1_12,STATUS_raxml_1_13,STATUS_report_raxml_1_13)
+    set sample_id, task_name, status, warning, fail, file(log) from STATUS_integrity_coverage_1_1.mix(STATUS_fastqc_1_2,STATUS_fastqc_report_1_2,STATUS_trimmomatic_1_2,STATUS_filter_poly_1_3,STATUS_bowtie_1_4,STATUS_report_bowtie_1_4,STATUS_retrieve_mapped_1_5,STATUS_renamePE_1_5,STATUS_check_coverage_1_6,STATUS_va_spades_1_7,STATUS_va_megahit_1_7,STATUS_report_viral_assembly_1_7,STATUS_assembly_mapping_1_8,STATUS_process_am_1_8,STATUS_pilon_1_9,STATUS_pilon_report_1_9,STATUS_split_assembly_1_10,STATUS_dengue_typing_assembly_1_11,STATUS_dengue_typing_reads_1_11,STATUS_mafft_1_12,STATUS_raxml_1_13,STATUS_report_raxml_1_13)
 
     output:
     file '*.status' into master_status
@@ -1413,7 +1492,7 @@ process report {
             pid,
             report_json,
             version_json,
-            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_bowtie_1_4,REPORT_report_bowtie_1_4,REPORT_retrieve_mapped_1_5,REPORT_check_coverage_1_6,REPORT_va_spades_1_7,REPORT_va_megahit_1_7,REPORT_report_viral_assembly_1_7,REPORT_assembly_mapping_1_8,REPORT_process_am_1_8,REPORT_pilon_1_9,REPORT_pilon_report_1_9,REPORT_split_assembly_1_10,REPORT_dengue_typing_assembly_1_11,REPORT_dengue_typing_reads_1_11,REPORT_mafft_1_12,REPORT_raxml_1_13,REPORT_report_raxml_1_13)
+            trace from REPORT_integrity_coverage_1_1.mix(REPORT_fastqc_1_2,REPORT_fastqc_report_1_2,REPORT_trimmomatic_1_2,REPORT_filter_poly_1_3,REPORT_bowtie_1_4,REPORT_report_bowtie_1_4,REPORT_retrieve_mapped_1_5,REPORT_renamePE_1_5,REPORT_check_coverage_1_6,REPORT_va_spades_1_7,REPORT_va_megahit_1_7,REPORT_report_viral_assembly_1_7,REPORT_assembly_mapping_1_8,REPORT_process_am_1_8,REPORT_pilon_1_9,REPORT_pilon_report_1_9,REPORT_split_assembly_1_10,REPORT_dengue_typing_assembly_1_11,REPORT_dengue_typing_reads_1_11,REPORT_mafft_1_12,REPORT_raxml_1_13,REPORT_report_raxml_1_13)
 
     output:
     file "*" optional true into master_report

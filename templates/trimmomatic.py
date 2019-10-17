@@ -88,8 +88,8 @@ def __get_version_trimmomatic():
 
 
 if __file__.endswith(".command.sh"):
-    SAMPLE_ID = '$sample_id'
-    FASTQ_PAIR = '$fastq_pair'.split()
+    SAMPLE_ID = '$sample_id'.replace(".fastq.gz", "").replace(".fq.gz", "")
+    FASTQ = '$fastq_pair'.split()  # se or pe files
     TRIM_RANGE = '$trim_range'.split()
     TRIM_OPTS = [x.strip() for x in '$opts'.strip("[]").split(",")]
     PHRED = '$phred'
@@ -99,7 +99,7 @@ if __file__.endswith(".command.sh"):
     logger.debug("Running {} with parameters:".format(
         os.path.basename(__file__)))
     logger.debug("SAMPLE_ID: {}".format(SAMPLE_ID))
-    logger.debug("FASTQ_PAIR: {}".format(FASTQ_PAIR))
+    logger.debug("FASTQ: {}".format(FASTQ))
     logger.debug("TRIM_RANGE: {}".format(TRIM_RANGE))
     logger.debug("TRIM_OPTS: {}".format(TRIM_OPTS))
     logger.debug("PHRED: {}".format(PHRED))
@@ -289,7 +289,7 @@ def merge_default_adapters():
 
 
 @MainWrapper
-def main(sample_id, fastq_pair, trim_range, trim_opts, phred, adapters_file,
+def main(sample_id, fastq, trim_range, trim_opts, phred, adapters_file,
          clear):
     """ Main executor of the trimmomatic template.
 
@@ -323,10 +323,15 @@ def main(sample_id, fastq_pair, trim_range, trim_opts, phred, adapters_file,
         "-Xmx{}".format("$task.memory"[:-1].lower().replace(" ", "")),
         "-jar",
         TRIM_PATH.strip(),
-        "PE",
+        "",
         "-threads",
         "$task.cpus"
     ]
+
+    if len(fastq) > 1:
+        cli[4] = "PE"
+    else:
+        cli[4] = "SE"
 
     # If the phred encoding was detected, provide it
     try:
@@ -340,15 +345,16 @@ def main(sample_id, fastq_pair, trim_range, trim_opts, phred, adapters_file,
         pass
 
     # Add input samples to CLI
-    cli += fastq_pair
+    cli += fastq
 
     # Add output file names
     output_names = []
-    for i in range(len(fastq_pair)):
+    for i in range(len(fastq)):
         output_names.append("{}_{}_trim.fastq.gz".format(
             SAMPLE_ID, str(i + 1)))
-        output_names.append("{}_{}_U.fastq.gz".format(
-            SAMPLE_ID, str(i + 1)))
+        if cli[4] == "PE":
+            output_names.append("{}_{}_U.fastq.gz".format(
+                SAMPLE_ID, str(i + 1)))
     cli += output_names
 
     if trim_range != ["None"]:
@@ -403,7 +409,7 @@ def main(sample_id, fastq_pair, trim_range, trim_opts, phred, adapters_file,
 
     if p.returncode == 0 and os.path.exists("{}_1_trim.fastq.gz".format(
             SAMPLE_ID)):
-        clean_up(fastq_pair, clear)
+        clean_up(fastq, clear)
 
     # Check if trimmomatic ran successfully. If not, write the error message
     # to the status channel and exit.
@@ -424,5 +430,5 @@ def main(sample_id, fastq_pair, trim_range, trim_opts, phred, adapters_file,
 
 if __name__ == '__main__':
 
-    main(SAMPLE_ID, FASTQ_PAIR, TRIM_RANGE, TRIM_OPTS, PHRED, ADAPTERS_FILE,
+    main(SAMPLE_ID, FASTQ, TRIM_RANGE, TRIM_OPTS, PHRED, ADAPTERS_FILE,
          CLEAR)
