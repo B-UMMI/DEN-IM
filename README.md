@@ -1,22 +1,17 @@
 # DEN-IM
 
-**warning:** Due to an issue with Nextflow's latest release, DEN-IM is currently not compatible with the latest nextflow version available on conda (19.07.0). To use DEN-IM please downgrate to version **18.10.1** until further notice (which I hope to be soon). Very sorry for the inconvinience! More information on this issue is available [here](https://github.com/nextflow-io/nextflow/issues/1289). 
-
 ![DEN-IM_logo](https://user-images.githubusercontent.com/15690332/60383483-47e5d900-9a69-11e9-9808-3a1d9023a32a.png)
 
 DEN-IM is a  one-stop, user-friendly, containerised and reproducible workflow for the analysis of DENV sequencing data, 
 both from shotgun and targeted metagenomics approaches.
 Is is able to infer DENV coding sequence (CDS), identify serotype and genotype, and generate a phylogenetic tree.
 
-As input DEN-IM accepts **raw paired-end Illumina sequencing reads**, and and informs the user with an interactive 
-HTML report with information on the quality control, mapping, assembly typing and phylogenetic analysis, as well as 
+As input DEN-IM accepts **raw Illumina sequencing reads**, and and informs the user with an **interactive 
+HTML report** with information on the quality control, mapping, assembly typing and phylogenetic analysis, as well as 
 all the output files of the whole pipeline.
 
-It is implemented in Nextflow, a workflow management system that allows the effortless deployment and execution of 
-complex distributed computational workflows. DEN-IM integrates Docker containerised images for all the tools necessary 
-for its execution, ensuring reproducibility and the tracking of both software code and version, regardless of the 
+It is implemented in [Nextflow](https://www.nextflow.io/), a workflow management system that allows the effortless deployment and execution of complex distributed computational workflows. DEN-IM integrates Docker containerised images for all the tools necessary for its execution, ensuring reproducibility and the tracking of both software code and version, regardless of the 
 operating system used.
-
 
 ## Installation
 
@@ -50,7 +45,9 @@ files will be in your local machine.
 
 After you have a local installation of DEN-IM, you can get started using the workflow with:
 
-`nextflow run DEN-IM.nf --fastq /path/to/input/files/*_{1,2}.fq.gz`
+single-end reads: `nextflow run DEN-IM.nf --fastq="/path/to/input/files/*.fq.gz"`
+
+paired-end reads: `nextflow run DEN-IM.nf --fastq="/path/to/input/files/*_{1,2}.fq.gz"`
 
 By default nextflow executes DEN-IM with singularity, but this can be changed by adding `-pofile docker` to the command.
 
