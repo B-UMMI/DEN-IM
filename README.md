@@ -75,3 +75,6 @@ DEN-IM was developed by the [Molecular Microbiology and Infection Unit](http://d
 Instituto de Medicina Molecular, in collaboration with [Personalised Microbiology Lab](https://rossenlab.com/) at UMCG. 
 A pre-print is available at [biorxiv](https://www.biorxiv.org/content/10.1101/628073v1).
 
+If you use this workflow, please cite:
+Mendes CI, Lizarazo E, Machado MP, Silva DN, Tami A, Ramirez M, et al. DEN-IM: dengue virus genotyping from amplicon and shotgun metagenomic sequencing. Microb Genomics. 2020 Mar 5; Available from: https://www.microbiologyresearch.org/content/journal/mgen/10.1099/mgen.0.000328
+
