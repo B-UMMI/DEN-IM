@@ -104,12 +104,21 @@ file ".versions"
 }
 
 // TRIAGE OF CORRUPTED SAMPLES
+/*
 LOG_corrupted_1_1 = Channel.create()
 MAIN_PreCoverageCheck_1_1 = Channel.create()
 // Corrupted samples have the 2nd value with 'corrupt'
 MAIN_integrity_1_1.choice(LOG_corrupted_1_1, MAIN_PreCoverageCheck_1_1) {
     a -> a[2].text == "corrupt" ? 0 : 1
 }
+*/
+MAIN_integrity_1_1.branch {
+                    corrupted: a -> a[2].text == "corrupt"
+                    passing: true
+                          }.set{ OUT_integrity_1_1 }
+
+OUT_integrity_1_1.corrupted.set{LOG_corrupted_1_1}
+OUT_integrity_1_1.passing.set{MAIN_PreCoverageCheck_1_1}
 
 // TRIAGE OF LOW COVERAGE SAMPLES
 integrity_coverage_out_1_0 = Channel.create()
@@ -121,9 +130,16 @@ MAIN_PreCoverageCheck_1_1
     .filter{ it[4].text != "fail" }
 // For the channel to proceed with FastQ in 'sample_good' and the
 // Phred scores for each sample in 'SIDE_phred'
-    .separate(integrity_coverage_out_1_0, SIDE_phred_1_1, SIDE_max_len_1_1){
-        a -> [ [a[0], a[1]], [a[0], a[3].text], [a[0], a[5].text]  ]
-    }
+//integrity_coverage_out_1_0, SIDE_phred_1_1, SIDE_max_len_1_1
+    .multiMap{ a ->
+            integrity: [a[0], a[1]]
+            phred: [a[0], a[3].text]
+            max_len: [a[0], a[5].text]
+            }.set{OUT_MAIN_PreCoverageCheck_1_1}
+
+OUT_MAIN_PreCoverageCheck_1_1.integrity.set{integrity_coverage_out_1_0}
+OUT_MAIN_PreCoverageCheck_1_1.phred.set{SIDE_phred_1_1}
+OUT_MAIN_PreCoverageCheck_1_1.phred.max_len.set{SIDE_max_len_1_1}
 
 /** REPORT_COVERAGE - PLUG-IN
 This process will report the expected coverage for each non-corrupted sample
@@ -259,7 +275,7 @@ file ".versions"
 
 }
 
-MAIN_fastqc_trim_1_2 = Channel.create()
+//MAIN_fastqc_trim_1_2 = Channel.create()
 _MAIN_fastqc_trim_1_2
         .filter{ it[3].text == "pass" }
         .map{ [it[0], it[1], file(it[2]).text] }
@@ -677,7 +693,7 @@ file ".versions"
     script:
     template "integrity_coverage.py"
 }
-
+/*
 _check_coverage_out_1_5 = Channel.create()
 SIDE_max_len_1_6 = Channel.create()
 
@@ -686,7 +702,17 @@ MAIN_integrity_1_6
     .separate(_check_coverage_out_1_5, SIDE_max_len_1_6){
         a -> [ [a[0], a[1]], [a[0], a[3].text]]
     }
+*/
 
+MAIN_integrity_1_6
+    .filter{ it[2].text != "fail" }
+    .multiMap{ a ->
+        check_coverage: [a[0], a[1]]
+        max_len: [a[0], a[3].text]
+    }.set{OUT_MAIN_integrity_1_6}
+
+OUT_MAIN_integrity_1_6.check_coverage.set{_check_coverage_out_1_5}
+OUT_MAIN_integrity_1_6.max_len.set{SIDE_max_len_1_6}
 
 process report_coverage2_1_6 {
 
@@ -714,8 +740,8 @@ SIDE_max_len_1_6.set{ SIDE_max_len_1_7 }
 
 
 //MAIN INPUT - FASTQ FILES
-spades_in = Channel.create()
-megahit_in = Channel.create()
+//spades_in = Channel.create()
+//megahit_in = Channel.create()
 
 check_coverage_out_1_5.into{ spades_in; megahit_in }
 
@@ -756,8 +782,8 @@ IN_spades_kmers_1_7 = Channel.value(params.spadesKmers)
 //MEGAGIT INPUT CHANNELS
 IN_megahit_kmers_1_7 = Channel.value(params.megahitKmers)
 
-SIDE_max_len_spades = Channel.create()
-SIDE_max_len_megahit = Channel.create()
+//SIDE_max_len_spades = Channel.create()
+//SIDE_max_len_megahit = Channel.create()
 SIDE_max_len_1_7.into{SIDE_max_len_spades ; SIDE_max_len_megahit}
 
 disableRR_1_7 = "false"
@@ -823,11 +849,15 @@ class VerifyCompletness {
         return false;
     }
 }
-
+/*
 megahit = Channel.create()
 good_assembly = Channel.create()
 assembly_spades.choice(good_assembly, megahit){a -> a[1].toString() == "null" ? false : VerifyCompletness.contigs(a[1].toString(), params.minimumContigSize.toInteger()) == true ? 0 : 1}
-
+*/
+// TODO: BULLSHIT! 
+assembly_spades.branch{
+            good_assembly:
+}
 
 process va_megahit_1_7  {
 
