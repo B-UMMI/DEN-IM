@@ -76,5 +76,5 @@ Instituto de Medicina Molecular, in collaboration with [Personalised Microbiolog
 A pre-print is first made available at [biorxiv](https://www.biorxiv.org/content/10.1101/628073v1).
 
 If you use this workflow, please cite:
-[Mendes CI, Lizarazo E, Machado MP, Silva DN, Tami A, Ramirez M, et al. DEN-IM: dengue virus genotyping from amplicon and shotgun metagenomic sequencing. Microb Genomics. 2020 Mar 5][https://www.microbiologyresearch.org/content/journal/mgen/10.1099/mgen.0.000328)
+[Mendes CI, Lizarazo E, Machado MP, Silva DN, Tami A, Ramirez M, et al. DEN-IM: dengue virus genotyping from amplicon and shotgun metagenomic sequencing. Microb Genomics. 2020 Mar 5](https://www.microbiologyresearch.org/content/journal/mgen/10.1099/mgen.0.000328)
 
